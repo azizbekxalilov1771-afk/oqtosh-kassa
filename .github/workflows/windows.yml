@@ -13,6 +13,46 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Repoga zipning o'zi yuklansa (Add file → Upload files → oqtosh-desktop.zip):
+      # ichidagisi ochiladi, repodagi fayllar yangilanadi, zip o'chiriladi va yangisi yig'iladi.
+      - name: Zipni ochish (yuklangan bo'lsa)
+        id: unzip
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip=""; best=-1
+          for f in *.zip; do
+            [ -f "$f" ] || continue
+            t="$(git log -1 --format=%ct -- "$f" 2>/dev/null || true)"; t="${t:-0}"
+            if [ "$t" -gt "$best" ]; then zip="$f"; best="$t"; fi
+          done
+          if [ -z "$zip" ]; then echo "Zip yo'q — repodagi fayllardan yig'iladi."; exit 0; fi
+          echo "Zip topildi: $zip"
+          PY="$(command -v python || command -v python3)"
+          rm -rf .zip-src && mkdir .zip-src
+          "$PY" -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$zip" .zip-src
+          pkg="$(find .zip-src -maxdepth 3 -name package.json -not -path '*/node_modules/*' | head -1)"
+          [ -n "$pkg" ] || { echo "Zip ichida package.json topilmadi — bu oqtosh-desktop.zip emas."; exit 1; }
+          cp -R "$(dirname "$pkg")"/. .
+          rm -rf .zip-src node_modules dist
+          git rm -q --cached --ignore-unmatch -- *.zip
+          rm -f -- *.zip
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+
+      - name: Ochilgan fayllarni repoga yozish
+        if: steps.unzip.outputs.zip != ''
+        continue-on-error: true
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- . ':(exclude).github'
+          if git diff --cached --quiet; then echo "O'zgarish yo'q."; exit 0; fi
+          git commit -q -m "Zipdan yangilandi: ${{ steps.unzip.outputs.zip }}"
+          git push
 
       - uses: actions/setup-node@v4
         with:
@@ -24,8 +64,12 @@ jobs:
       - name: Printer moduli tekshiruvi
         run: npm test
 
+      # har yig'ishda versiya o'sadi (2.1.<raqam>) — o'rnatilgan dasturlar yangisini o'zi topadi
+      - name: Versiya
+        run: npm version 2.1.${{ github.run_number }} --no-git-tag-version --allow-same-version
+
       - name: Setup.exe yig'ish
-        run: npx electron-builder --win nsis --x64 --publish never
+        run: npx electron-builder --win nsis --x64 --publish never -c.publish.provider=github -c.publish.owner=${{ github.repository_owner }} -c.publish.repo=${{ github.event.repository.name }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
@@ -39,9 +83,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: Oqtosh Kassa (yig'ish ${{ github.run_number }})
+          name: Oqtosh Kassa 2.1.${{ github.run_number }}
           body: |
             Yuklab oling va o'rnating: Oqtosh-Kassa-Setup.exe
             "Windows protected your PC" chiqsa: More info → Run anyway.
-          files: dist/Oqtosh-Kassa-Setup.exe
+          # latest.yml va .blockmap — dastur ichidagi yangilagich (electron-updater) shularni o'qiydi
+          files: |
+            dist/Oqtosh-Kassa-Setup.exe
+            dist/Oqtosh-Kassa-Setup.exe.blockmap
+            dist/latest.yml
           make_latest: true
