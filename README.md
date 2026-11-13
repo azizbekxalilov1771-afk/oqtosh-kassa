@@ -16,6 +16,10 @@ bash scripts/github-setup.sh      # GitHub'da repozitoriy ochadi va kodni yuklay
 bash scripts/yuklash.sh           # yig'ish tugashini kutadi (6–10 daqiqa) va havolani beradi
 ```
 
+GitHub'ga kirishda kod chiqmasa yoki brauzer ochilmasa — token bilan kiring: telefon brauzerida
+`https://github.com/settings/tokens/new?scopes=repo,workflow,read:org&description=termux` → **Generate token** → nusxa oling →
+Termux'da `gh auth login --with-token` → tokenni qo'ying → Enter → **Ctrl+D** → `gh auth setup-git` → skriptni qayta ishga tushiring.
+
 GitHub Actions Windows kompyuterida `Oqtosh-Kassa-Setup.exe` ni yig‘adi va **Releases**ga qo‘yadi.
 Doimiy havola (har doim eng oxirgi versiya):
 `https://github.com/<github-login>/oqtosh-kassa/releases/latest/download/Oqtosh-Kassa-Setup.exe`

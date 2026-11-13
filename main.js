@@ -63,7 +63,10 @@ const originOf = (u) => {
     return '';
   }
 };
-const ours = () => [originOf(settings.site), originOf(settings.admin)].filter(Boolean);
+// Saytimiz o'zi yo'naltirgan manzillar (masalan oqtosh-sayt.netlify.app → oqtoshrestoran.uz) ham "o'zimizniki":
+// aks holda yo'naltirilgan sahifadagi havolalar tashqi brauzerda ochilib ketadi.
+const aliases = new Set([defaults.site, defaults.admin, ...(defaults.aliases || [])].map(originOf).filter(Boolean));
+const ours = () => [originOf(settings.site), originOf(settings.admin), ...aliases].filter(Boolean);
 const isOurs = (u) => ours().includes(originOf(u));
 const AUTH_HOST = /(^|\.)(accounts\.google\.com|firebaseapp\.com|googleapis\.com|google\.com|gstatic\.com)$/i;
 const EXTERNAL_OK = /^(https?|tg|tel|mailto):/i;
@@ -282,6 +285,7 @@ function startAgent() {
   });
   agent.on('log', pushLog);
   agent.on('site', (site) => {
+    aliases.add(originOf(settings.site)); // ochiq oynalar eski manzilda ishlashda davom etsin
     settings.site = site;
     saveSettings();
   });
@@ -363,6 +367,11 @@ ipcMain.handle('oq:settings:set', async (e, patch) => {
 ipcMain.handle('oq:pair', async (e, code) => {
   guard(e);
   const r = await pair(settings.site, String(code || ''));
+  if (r.site && okUrl(r.site) && r.site !== settings.site) {
+    aliases.add(originOf(settings.site));
+    settings.site = r.site;
+    saveSettings();
+  }
   saveKey(r.key);
   startAgent();
   return true;
@@ -414,6 +423,12 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb, details) => {
     const url = details?.requestingUrl || wc.getURL();
     cb(isOurs(url) && ['notifications', 'clipboard-sanitized-write', 'clipboard-read', 'media', 'fullscreen', 'geolocation'].includes(permission));
+  });
+  // o'z saytimiz sahifani boshqa https manzilga yo'naltirsa — o'sha manzil ham ruxsat etiladi
+  session.defaultSession.webRequest.onBeforeRedirect((d) => {
+    if (d.resourceType !== 'mainFrame' || !isOurs(d.url)) return;
+    const to = originOf(d.redirectURL);
+    if (to.startsWith('https://')) aliases.add(to);
   });
   buildMenu();
   buildTray();

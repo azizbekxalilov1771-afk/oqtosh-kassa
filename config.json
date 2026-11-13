@@ -1,4 +1,7 @@
 {
-  "site": "https://oqtosh-sayt.netlify.app",
-  "admin": "https://oqtosh-panel.netlify.app"
+  "site": "https://oqtoshrestoran.uz",
+  "admin": "https://oqtosh-panel.netlify.app",
+  "aliases": [
+    "https://oqtosh-sayt.netlify.app"
+  ]
 }

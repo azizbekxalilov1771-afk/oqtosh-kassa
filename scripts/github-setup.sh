@@ -14,8 +14,9 @@ if ! command -v git >/dev/null || ! command -v gh >/dev/null; then
   pkg install -y git gh
 fi
 if ! gh auth status >/dev/null 2>&1; then
-  say "GitHub'ga kirish: brauzer ochiladi, ekrandagi kodni kiriting"
-  gh auth login --hostname github.com --git-protocol https --web
+  say "GitHub'ga kirish: 8 belgili kod chiqadi — telefonda https://github.com/login/device ni ochib, kodni kiriting"
+  echo "(Kod chiqmasa: Ctrl+C, keyin token bilan kiring — README, 1-bo'lim)"
+  gh auth login --hostname github.com --git-protocol https --web -s workflow
 fi
 gh auth setup-git >/dev/null
 OWNER="$(gh api user -q .login)"

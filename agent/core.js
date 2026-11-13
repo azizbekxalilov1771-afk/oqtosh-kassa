@@ -192,12 +192,18 @@ class Agent extends EventEmitter {
   }
 
   async api(method, path, body) {
-    const res = await fetch(this.site + path, {
+    const { res, url } = await send(this.site + path, {
       method,
       headers: { 'X-Oq-Agent': this.key, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(30_000),
     });
+    const origin = new URL(url).origin;
+    if (origin !== new URL(this.site).origin) {
+      this.site = origin;
+      this.emit('site', this.site);
+      this.log(`Sayt manzili yangilandi: ${this.site}`);
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
     return data;
@@ -411,14 +417,30 @@ class Agent extends EventEmitter {
   }
 }
 
-// Ulash: admin paneldagi 8 belgili kod → doimiy kalit
+// Sayt boshqa manzilga yo'naltirsa (masalan netlify.app → o'z domeni), oddiy fetch POST'ni GET'ga aylantirib yuboradi.
+// Shuning uchun yo'naltirishni o'zimiz kuzatamiz: usul va tana saqlanadi, faqat https manzillarga.
+async function send(url, init) {
+  let u = url;
+  for (let hop = 0; hop < 4; hop++) {
+    const res = await fetch(u, { ...init, redirect: 'manual' });
+    if (![301, 302, 303, 307, 308].includes(res.status)) return { res, url: u };
+    const loc = res.headers.get('location');
+    if (!loc) return { res, url: u };
+    const next = new URL(loc, u);
+    if (next.protocol !== 'https:' && !/^(localhost|127\.0\.0\.1)$/.test(next.hostname)) return { res, url: u };
+    u = next.href;
+  }
+  throw new Error('Sayt manzili juda ko‘p marta yo‘naltirilmoqda');
+}
+
+// Ulash: admin paneldagi 8 belgili kod → doimiy kalit (+ saytning haqiqiy manzili)
 async function pair(site, code) {
-  const res = await fetch(`${String(site).replace(/\/+$/, '')}/api/print-agent/pair`, {
+  const { res, url } = await send(`${String(site).replace(/\/+$/, '')}/api/print-agent/pair`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }), signal: AbortSignal.timeout(20_000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  return { ...data, site: new URL(url).origin };
 }
 
-module.exports = { Agent, pair, findNetPrinters, sendNet, snmpName, arpTable, localIPv4, testTicket, VERSION };
+module.exports = { Agent, pair, send, findNetPrinters, sendNet, snmpName, arpTable, localIPv4, testTicket, VERSION };
