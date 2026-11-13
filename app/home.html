@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
+  <title>Oqtosh Kassa</title>
+  <link rel="stylesheet" href="home.css">
+  <script src="home.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <img src="icon.png" alt="" width="40" height="40">
+    <div>
+      <h1>Oqtosh Kassa</h1>
+      <p class="muted" id="ver"></p>
+    </div>
+  </header>
+
+  <main>
+    <section class="tiles" aria-label="Bo‘limlar">
+      <button type="button" class="tile" data-open="kassa"><span class="ico" aria-hidden="true">🧾</span><b>Kassa</b><small>stollar, hisob, to‘lov · F1</small></button>
+      <button type="button" class="tile" data-open="ofitsiant"><span class="ico" aria-hidden="true">🍽</span><b>Ofitsiant</b><small>login bilan kirish · F2</small></button>
+      <button type="button" class="tile" data-open="admin"><span class="ico" aria-hidden="true">🛠</span><b>Admin panel</b><small>menyu, xodimlar, printerlar · F3</small></button>
+      <button type="button" class="tile" data-open="owner"><span class="ico" aria-hidden="true">📊</span><b>Owner</b><small>savdo va mijozlar · F4</small></button>
+    </section>
+
+    <div class="grid">
+      <section class="card" aria-labelledby="pr-title">
+        <div class="card-head">
+          <h2 id="pr-title">Printer dasturi</h2>
+          <span class="pill" id="pr-pill">…</span>
+        </div>
+        <div id="pair" hidden>
+          <p>Oshxona (salat, issiq ovqat, somsa, shashlik) va kassa cheklari Wi‑Fi yoki USB printerlardan <b>oynasiz</b> chiqishi uchun dasturni restoran saytiga ulang:</p>
+          <ol>
+            <li>Admin panel → <b>Tayyorlash joylari</b> → “🖥 Oqtosh Kassa dasturini ulash” ni bosing.</li>
+            <li>Chiqqan 8 belgili kodni shu yerga yozing.</li>
+          </ol>
+          <form id="pair-form" class="row">
+            <input id="pair-code" placeholder="ABCD-EFGH" maxlength="9" autocomplete="off" spellcheck="false" aria-label="Ulash kodi">
+            <button type="submit" class="btn">Ulash</button>
+          </form>
+          <button type="button" class="btn-link" data-open="admin" data-hash="/tayyorlash">Admin panelda “Tayyorlash joylari”ni ochish →</button>
+          <p class="err" id="pair-err" role="alert" hidden></p>
+        </div>
+        <div id="paired" hidden>
+          <dl class="facts" id="facts"></dl>
+          <ul class="printers" id="printers"></ul>
+          <div class="row wrap">
+            <button type="button" class="btn ghost" id="scan">🔎 Printerlarni qidirish</button>
+            <button type="button" class="btn ghost" data-open="admin" data-hash="/tayyorlash">Bo‘limlarga biriktirish</button>
+            <button type="button" class="btn-link danger" id="unpair">Uzish</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="log-title">
+        <div class="card-head"><h2 id="log-title">Jurnal</h2></div>
+        <ol class="log" id="log"></ol>
+      </section>
+    </div>
+
+    <details class="card settings">
+      <summary><h2>Sozlamalar</h2></summary>
+      <form id="settings">
+        <label>Sayt manzili<input name="site" type="url" required></label>
+        <label>Admin panel manzili<input name="admin" type="url" required></label>
+        <label>Brauzer cheklari uchun printer
+          <span class="row"><select name="htmlPrinter"></select><button type="button" class="btn ghost" id="test-html">Sinov</button></span>
+          <small class="muted">“Qurilmalar va printer” bo‘limidagi oddiy (HTML) cheklar shu printerdan oynasiz chiqadi.</small>
+        </label>
+        <label>Dastur ochilganda
+          <select name="startWith"><option value="home">Shu bosh oyna</option><option value="kassa">Kassa</option><option value="ofitsiant">Ofitsiant</option></select>
+        </label>
+        <label class="check"><input type="checkbox" name="autostart"> Kompyuter yoqilganda o‘zi ishga tushsin (printerlar uchun kerak)</label>
+        <label class="check"><input type="checkbox" name="kassaFullscreen"> Kassa to‘liq ekranda ochilsin</label>
+        <div class="row"><button type="submit" class="btn">Saqlash</button><span class="muted" id="saved" hidden>Saqlandi</span></div>
+        <p class="err" id="set-err" role="alert" hidden></p>
+      </form>
+    </details>
+  </main>
+</body>
+</html>
