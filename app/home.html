@@ -18,11 +18,16 @@
   </header>
 
   <main>
+    <div class="update" id="update" hidden>
+      <span id="update-text"></span>
+      <button type="button" class="btn small" id="update-btn" hidden>Hozir yangilash</button>
+    </div>
+    <p class="mode-note" id="mode-note" hidden>Bu kompyuter — <b>ofitsiant terminali</b>: faqat Ofitsiant oynasi ochiladi (omborchi ham shu oynadan PIN bilan kiradi). Kassa, Admin va Owner faqat <b>asosiy kompyuterda</b> — uni admin bergan kod bilan pastdagi “Printer dasturi” qismidan ulang.</p>
     <section class="tiles" aria-label="Bo‘limlar">
-      <button type="button" class="tile" data-open="kassa"><span class="ico" aria-hidden="true">🧾</span><b>Kassa</b><small>stollar, hisob, to‘lov · F1</small></button>
-      <button type="button" class="tile" data-open="ofitsiant"><span class="ico" aria-hidden="true">🍽</span><b>Ofitsiant</b><small>login bilan kirish · F2</small></button>
-      <button type="button" class="tile" data-open="admin"><span class="ico" aria-hidden="true">🛠</span><b>Admin panel</b><small>menyu, xodimlar, printerlar · F3</small></button>
-      <button type="button" class="tile" data-open="owner"><span class="ico" aria-hidden="true">📊</span><b>Owner</b><small>savdo va mijozlar · F4</small></button>
+      <button type="button" class="tile" data-open="kassa" data-main><span class="ico" aria-hidden="true">🧾</span><b>Kassa</b><small>stollar, hisob, to‘lov, smena · F1</small></button>
+      <button type="button" class="tile" data-open="ofitsiant"><span class="ico" aria-hidden="true">🍽</span><b>Ofitsiant</b><small>PIN bilan kirish · F2</small></button>
+      <button type="button" class="tile" data-open="admin" data-main><span class="ico" aria-hidden="true">🛠</span><b>Admin panel</b><small>menyu, xodimlar, ruxsatlar, ombor · F3</small></button>
+      <button type="button" class="tile" data-open="owner" data-main><span class="ico" aria-hidden="true">📊</span><b>Owner</b><small>savdo, smenalar, ombor · F4</small></button>
     </section>
 
     <div class="grid">
@@ -74,7 +79,8 @@
           <select name="startWith"><option value="home">Shu bosh oyna</option><option value="kassa">Kassa</option><option value="ofitsiant">Ofitsiant</option></select>
         </label>
         <label class="check"><input type="checkbox" name="autostart"> Kompyuter yoqilganda o‘zi ishga tushsin (printerlar uchun kerak)</label>
-        <label class="check"><input type="checkbox" name="kassaFullscreen"> Kassa to‘liq ekranda ochilsin</label>
+        <label class="check"><input type="checkbox" name="fullscreen"> Oynalar to‘liq ekranda ochilsin (F11 — chiqish)</label>
+        <div class="row"><button type="button" class="btn ghost small" id="check-upd">Yangilanishni tekshirish</button></div>
         <div class="row"><button type="submit" class="btn">Saqlash</button><span class="muted" id="saved" hidden>Saqlandi</span></div>
         <p class="err" id="set-err" role="alert" hidden></p>
       </form>

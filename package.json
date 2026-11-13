@@ -1,7 +1,7 @@
 {
   "name": "oqtosh-kassa",
   "productName": "Oqtosh Kassa",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Oqtosh restoran: kassa, ofitsiant, admin panel, owner hisobotlari va printerlar — bitta dasturda",
   "main": "main.js",
   "author": "Oqtosh Restoran",
@@ -20,10 +20,27 @@
     "appId": "uz.oqtoshrestoran.desktop",
     "productName": "Oqtosh Kassa",
     "copyright": "Oqtosh Restoran",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "config.json", "package.json", "agent/**", "app/**"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "config.json",
+      "package.json",
+      "agent/**",
+      "app/**"
+    ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.png",
       "artifactName": "Oqtosh-Kassa-Setup.exe"
     },
@@ -37,6 +54,12 @@
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
     },
-    "publish": null
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   }
 }

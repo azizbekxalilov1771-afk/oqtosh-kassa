@@ -1,6 +1,6 @@
 # Oqtosh Kassa — kompyuter dasturi (Windows)
 
-Bitta dasturda: **Kassa**, **Ofitsiant**, **Admin panel**, **Owner** (savdo hisobotlari) va **printer dasturi**
+Bitta dasturda: **Kassa**, **Ofitsiant**, **Ombor**, **Admin panel**, **Owner** (savdo hisobotlari) va **printer dasturi**
 (oshxona va kassa cheklari Wi‑Fi/USB printerlardan oynasiz chiqadi). Sahifalar saytdan yuklanadi: saytni
 yangilasangiz, dastur ham o‘zi yangilanadi — qayta o‘rnatish shart emas.
 
@@ -46,14 +46,26 @@ kassa oynasi ochiq bo‘lmasa ham chiqadi. Butunlay chiqish: tray → **Chiqish*
 
 “Qurilmalar va printer” bo‘limidagi oddiy (HTML) cheklar uchun printer: bosh oyna → **Sozlamalar** → “Brauzer cheklari uchun printer”.
 
+## Asosiy kompyuter va ofitsiant terminallari
+
+- **Asosiy kompyuter** — admin bergan 8 belgili kod bilan ulangan (printer dasturi ishlaydi): Kassa, Admin, Owner, printerlar.
+- **Boshqa kompyuterlar** (kod bilan ulanmagan) — faqat **Ofitsiant** oynasi, to‘liq ekranda. Omborchi ham shu oynadan PIN bilan kiradi va ombor sahifasiga o‘tadi.
+
+## Yangilanish
+
+GitHub'ga yangi kod yuklansa (`git push`), Actions yangi versiyani (2.1.N) yig‘adi. Hamma kompyuterdagi dastur uni
+30 daqiqa ichida o‘zi topadi, yuklab oladi va “Hozir yangilash / Keyinroq” deb so‘raydi. “Keyinroq” — kompyuter
+o‘chirilganda o‘zi o‘rnatiladi. Qo‘lda: menyu → Oqtosh → “Yangilanishni tekshirish”. Sayt sahifalari esa har doim
+saytdan yuklanadi (saytni yangilasangiz — darhol).
+
 ## 4. Kirish
 
-- **Kassa / Ofitsiant / Kuryer** — Telegram orqali yoki **parol bilan** (restoran Wi‑Fi’sida; parolni admin
-  “Xodimlar” bo‘limida beradi).
+- **Kassa / Ofitsiant / Kuryer / Ombor** — telefon raqami + **4 xonali PIN** (PIN'ni admin “Xodimlar” bo‘limida beradi).
+  Sahifalar admin saytida: `…/xodim/kassa.html`, `…/xodim/ofitsiant.html`.
 - **Admin panel** — Google yoki email + parol (ADMIN_EMAILS).
 - **Owner** — admin “Owner kirishi” bo‘limida ochgan email + parol.
 
-Klaviatura: F1 Kassa · F2 Ofitsiant · F3 Admin · F4 Owner · Ctrl+H bosh oyna · F5 yangilash · F11 to‘liq ekran · Alt+← orqaga.
+Klaviatura: F1 Kassa · F2 Ofitsiant · F3 Admin · F4 Owner · Ctrl+H bosh oyna · F5 yangilash · F11 to‘liq ekrandan chiqish/qaytish · Alt+← orqaga.
 
 ## 5. Tuzilma
 

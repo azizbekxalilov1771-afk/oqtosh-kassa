@@ -75,3 +75,8 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: v
 }
 .offline { min-height: 100vh; display: grid; place-items: center; }
 .offline .card { max-width: 520px; }
+.update { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.update.is-ready { border-color: var(--ok); background: rgb(143 202 91 / .1); }
+.mode-note { margin: 0; padding: 12px 16px; border-radius: 14px; border: 1px dashed var(--gold); background: rgb(229 163 62 / .08); }
+.tile[hidden] { display: none; }
+.update[hidden], .mode-note[hidden] { display: none; }

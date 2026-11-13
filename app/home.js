@@ -23,6 +23,22 @@ const time = (ms) => new Date(ms).toLocaleTimeString('ru-RU', { hour: '2-digit',
 
 let status = { paired: false };
 
+// asosiy kompyuter / ofitsiant terminali
+function paintMode(main) {
+  for (const b of document.querySelectorAll('[data-main]')) b.hidden = !main;
+  $('#mode-note').hidden = main;
+}
+// yangilanish holati
+const UPD = { checking: 'Yangilanish tekshirilmoqda…', latest: '', downloading: 'Yangi versiya yuklanmoqda', ready: 'Yangi versiya tayyor', error: '' };
+function paintUpdate(u) {
+  if (!u) return;
+  const text = u.status === 'downloading' ? `${UPD.downloading} ${u.version || ''}${u.percent ? ` · ${u.percent}%` : ''}` : u.status === 'ready' ? `${UPD.ready}: ${u.version}` : UPD[u.status] || '';
+  $('#update').hidden = !text;
+  $('#update').classList.toggle('is-ready', u.status === 'ready');
+  $('#update-text').textContent = text;
+  $('#update-btn').hidden = u.status !== 'ready';
+}
+
 for (const b of document.querySelectorAll('[data-open]')) {
   b.addEventListener('click', () => OqDesktop.open(b.dataset.open, b.dataset.hash || ''));
 }
@@ -79,7 +95,9 @@ function addLog(l) {
 
 async function init() {
   const st = await OqDesktop.state();
-  $('#ver').textContent = `versiya ${st.version} · printer moduli ${st.agentVersion}`;
+  $('#ver').textContent = `versiya ${st.version} · printer moduli ${st.agentVersion} · ${st.main ? 'asosiy kompyuter' : 'ofitsiant terminali'}`;
+  paintMode(st.main);
+  paintUpdate(st.update);
   status = st.status || { paired: false };
   for (const l of st.logs || []) addLog(l);
   paint();
@@ -88,7 +106,7 @@ async function init() {
   f.admin.value = st.settings.admin;
   f.startWith.value = st.settings.startWith || 'home';
   f.autostart.checked = Boolean(st.settings.autostart);
-  f.kassaFullscreen.checked = Boolean(st.settings.kassaFullscreen);
+  f.fullscreen.checked = st.settings.fullscreen !== false;
   f.htmlPrinter.replaceChildren(el('option', { value: '' }, 'Windows’dagi asosiy printer'), ...st.printers.map((p) => el('option', { value: p.name }, `${p.name}${p.isDefault ? ' (asosiy)' : ''}`)));
   f.htmlPrinter.value = st.settings.htmlPrinter || '';
 }
@@ -98,6 +116,13 @@ OqDesktop.onStatus((s) => {
   paint();
 });
 OqDesktop.onLog(addLog);
+OqDesktop.onMode((m) => {
+  paintMode(m.main);
+  OqDesktop.state().then((st) => ($('#ver').textContent = `versiya ${st.version} · printer moduli ${st.agentVersion} · ${st.main ? 'asosiy kompyuter' : 'ofitsiant terminali'}`));
+});
+OqDesktop.onUpdate(paintUpdate);
+$('#update-btn').addEventListener('click', () => OqDesktop.installUpdate());
+$('#check-upd').addEventListener('click', () => OqDesktop.checkUpdates());
 
 $('#pair-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -139,7 +164,7 @@ $('#settings').addEventListener('submit', async (e) => {
   const err = $('#set-err');
   err.hidden = true;
   try {
-    await OqDesktop.setSettings({ site: f.site.value, admin: f.admin.value, htmlPrinter: f.htmlPrinter.value, startWith: f.startWith.value, autostart: f.autostart.checked, kassaFullscreen: f.kassaFullscreen.checked });
+    await OqDesktop.setSettings({ site: f.site.value, admin: f.admin.value, htmlPrinter: f.htmlPrinter.value, startWith: f.startWith.value, autostart: f.autostart.checked, fullscreen: f.fullscreen.checked });
     $('#saved').hidden = false;
     setTimeout(() => ($('#saved').hidden = true), 2500);
   } catch (x) {

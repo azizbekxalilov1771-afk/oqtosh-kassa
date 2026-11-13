@@ -21,6 +21,10 @@ if (local) {
     testHtml: () => ipcRenderer.invoke('oq:test-html'),
     onStatus: (cb) => ipcRenderer.on('oq:agent-status', (_e, s) => cb(s)),
     onLog: (cb) => ipcRenderer.on('oq:agent-log', (_e, l) => cb(l)),
+    onMode: (cb) => ipcRenderer.on('oq:mode', (_e, m) => cb(m)),
+    onUpdate: (cb) => ipcRenderer.on('oq:update', (_e, u) => cb(u)),
+    installUpdate: () => ipcRenderer.invoke('oq:update:install'),
+    checkUpdates: () => ipcRenderer.invoke('oq:update:check'),
   });
 }
 contextBridge.exposeInMainWorld('OqDesktop', api);

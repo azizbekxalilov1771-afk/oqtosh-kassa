@@ -1,9 +1,13 @@
 'use strict';
-// Oqtosh Kassa — kompyuter dasturi. Bitta dasturda: Kassa, Ofitsiant, Admin panel, Owner hisobotlari
+// Oqtosh Kassa — kompyuter dasturi. Bitta dasturda: Kassa, Ofitsiant, Ombor, Admin panel, Owner hisobotlari
 // va ichki printer dasturi (oshxona/kassa cheklari Wi‑Fi va USB printerlarga, oynasiz).
 // Sahifalar saytdan yuklanadi — sayt yangilansa dastur ham o'zi yangilanadi (qayta o'rnatish shart emas).
+// Ikki rejim:
+//   asosiy kompyuter — admin bergan kod bilan ulangan (printer dasturi ishlaydi): Kassa, Admin, Owner, printerlar
+//   ofitsiant terminali — ulanmagan kompyuter: faqat Ofitsiant oynasi (omborchi ham shu oynadan PIN bilan kiradi)
+// Dasturning o'zi (oyna, printer moduli) GitHub'dagi yangi versiyani o'zi topadi va yangilanadi (electron-updater).
 
-const { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, session, safeStorage, Notification } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, session, safeStorage, Notification, dialog } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
@@ -33,7 +37,7 @@ const readJson = (file, fb) => {
     return fb;
   }
 };
-let settings = { site: defaults.site, admin: defaults.admin, autostart: true, startWith: 'home', kassaFullscreen: false, htmlPrinter: '', ...readJson(SETTINGS_FILE, {}) };
+let settings = { site: defaults.site, admin: defaults.admin, autostart: true, startWith: 'home', fullscreen: true, htmlPrinter: '', ...readJson(SETTINGS_FILE, {}) };
 function saveSettings() {
   fs.mkdirSync(userDir, { recursive: true });
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
@@ -102,13 +106,18 @@ app.on('web-contents-created', (_e, wc) => {
 });
 
 /* ───────── oynalar ───────── */
+// Xodim sahifalari admin saytida (/xodim/...): mijozlar sayti (oqtoshrestoran.uz) faqat mijozlar uchun
 const SECTIONS = {
-  kassa: { title: 'Kassa', url: () => `${settings.site}/kassa.html`, size: [1366, 860] },
-  ofitsiant: { title: 'Ofitsiant', url: () => `${settings.site}/ofitsiant.html`, size: [1100, 820] },
-  kuryer: { title: 'Kuryer', url: () => `${settings.site}/kuryer.html`, size: [900, 820] },
-  admin: { title: 'Admin panel', url: () => `${settings.admin}/`, size: [1366, 880] },
-  owner: { title: 'Owner — hisobotlar', url: () => `${settings.admin}/owner/`, size: [1366, 880] },
+  kassa: { title: 'Kassa', url: () => `${settings.admin}/xodim/kassa.html`, size: [1366, 860], main: true },
+  ofitsiant: { title: 'Ofitsiant', url: () => `${settings.admin}/xodim/ofitsiant.html`, size: [1100, 820] },
+  ombor: { title: 'Ombor', url: () => `${settings.admin}/xodim/ombor.html`, size: [1100, 820] },
+  kuryer: { title: 'Kuryer', url: () => `${settings.admin}/xodim/kuryer.html`, size: [900, 820], main: true },
+  admin: { title: 'Admin panel', url: () => `${settings.admin}/`, size: [1366, 880], main: true },
+  owner: { title: 'Owner — hisobotlar', url: () => `${settings.admin}/owner/`, size: [1366, 880], main: true },
 };
+// Asosiy kompyuter — printer dasturi ulangan (admin bergan kod bilan). Qolganlari — ofitsiant terminali.
+const isMain = () => Boolean(loadKey());
+const allowed = (name) => Boolean(SECTIONS[name]) && (!SECTIONS[name].main || isMain());
 const windows = new Map();
 let home = null;
 let tray = null;
@@ -128,7 +137,7 @@ function attachOffline(w) {
 
 function openSection(name, hash = '') {
   const s = SECTIONS[name];
-  if (!s) return null;
+  if (!s || !allowed(name)) return null;
   const url = s.url() + (hash ? `#${String(hash).replace(/^#/, '')}` : '');
   let w = windows.get(name);
   if (w && !w.isDestroyed()) {
@@ -138,12 +147,13 @@ function openSection(name, hash = '') {
     w.focus();
     return w;
   }
-  w = new BrowserWindow({ width: s.size[0], height: s.size[1], minWidth: 360, minHeight: 500, title: `Oqtosh — ${s.title}`, icon: ICON, backgroundColor: '#0b0b0d', show: false, webPreferences: webPrefs() });
+  w = new BrowserWindow({ width: s.size[0], height: s.size[1], minWidth: 360, minHeight: 500, title: `Oqtosh — ${s.title}`, icon: ICON, backgroundColor: '#0b0b0d', show: false, autoHideMenuBar: true, webPreferences: webPrefs() });
   windows.set(name, w);
   attachOffline(w);
   w.once('ready-to-show', () => {
-    if (name === 'kassa' && settings.kassaFullscreen) w.setFullScreen(true);
-    else if (name === 'kassa') w.maximize();
+    // to'liq ekran (F11 — chiqish/qaytish); o'chirilgan bo'lsa — butun ekranga yoyiladi
+    if (settings.fullscreen) w.setFullScreen(true);
+    else w.maximize();
     w.show();
   });
   w.on('closed', () => windows.delete(name));
@@ -158,8 +168,12 @@ function showHome() {
     home.focus();
     return home;
   }
-  home = new BrowserWindow({ width: 1080, height: 760, minWidth: 380, minHeight: 560, title: 'Oqtosh Kassa', icon: ICON, backgroundColor: '#0b0b0d', show: false, webPreferences: webPrefs() });
-  home.once('ready-to-show', () => home.show());
+  home = new BrowserWindow({ width: 1080, height: 760, minWidth: 380, minHeight: 560, title: 'Oqtosh Kassa', icon: ICON, backgroundColor: '#0b0b0d', show: false, autoHideMenuBar: true, webPreferences: webPrefs() });
+  home.once('ready-to-show', () => {
+    if (settings.fullscreen) home.setFullScreen(true);
+    else home.maximize();
+    home.show();
+  });
   home.on('close', (e) => {
     // printer dasturi ishlab tursa — oyna yopilmaydi, tray'ga yashirinadi
     if (!quitting && agent) {
@@ -183,6 +197,7 @@ function quit() {
 }
 
 function buildMenu() {
+  const main = isMain();
   const back = (_i, w) => {
     const h = w?.webContents?.navigationHistory;
     if (h?.canGoBack()) h.goBack();
@@ -191,13 +206,17 @@ function buildMenu() {
     { label: 'Oqtosh', submenu: [
       { label: 'Bosh oyna', accelerator: 'CmdOrCtrl+H', click: showHome },
       { type: 'separator' },
-      { label: 'Kassa', accelerator: 'F1', click: () => openSection('kassa') },
-      { label: 'Ofitsiant', accelerator: 'F2', click: () => openSection('ofitsiant') },
-      { label: 'Admin panel', accelerator: 'F3', click: () => openSection('admin') },
-      { label: 'Owner (hisobotlar)', accelerator: 'F4', click: () => openSection('owner') },
-      { label: 'Kuryer', click: () => openSection('kuryer') },
-      { type: 'separator' },
-      { label: 'Printerlarni sozlash', click: () => openSection('admin', '/tayyorlash') },
+      ...(main ? [
+        { label: 'Kassa', accelerator: 'F1', click: () => openSection('kassa') },
+        { label: 'Ofitsiant', accelerator: 'F2', click: () => openSection('ofitsiant') },
+        { label: 'Admin panel', accelerator: 'F3', click: () => openSection('admin') },
+        { label: 'Owner (hisobotlar)', accelerator: 'F4', click: () => openSection('owner') },
+        { label: 'Ombor', click: () => openSection('ombor') },
+        { label: 'Kuryer', click: () => openSection('kuryer') },
+        { type: 'separator' },
+        { label: 'Printerlarni sozlash', click: () => openSection('admin', '/tayyorlash') },
+      ] : [{ label: 'Ofitsiant', accelerator: 'F2', click: () => openSection('ofitsiant') }]),
+      { label: 'Yangilanishni tekshirish', click: () => checkUpdates(true) },
       { type: 'separator' },
       { label: 'Chiqish', accelerator: 'CmdOrCtrl+Q', click: quit },
     ] },
@@ -221,20 +240,30 @@ function buildMenu() {
 }
 
 function buildTray() {
-  const img = nativeImage.createFromPath(ICON).resize({ width: 16, height: 16 });
-  tray = new Tray(img);
+  if (!tray) {
+    tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 16, height: 16 }));
+    tray.on('double-click', showHome);
+    tray.on('click', showHome);
+  }
   tray.setToolTip('Oqtosh Kassa');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Bosh oyna', click: showHome },
-    { label: 'Kassa', click: () => openSection('kassa') },
-    { label: 'Ofitsiant', click: () => openSection('ofitsiant') },
-    { label: 'Admin panel', click: () => openSection('admin') },
-    { label: 'Owner (hisobotlar)', click: () => openSection('owner') },
+    ...(isMain() ? [
+      { label: 'Kassa', click: () => openSection('kassa') },
+      { label: 'Ofitsiant', click: () => openSection('ofitsiant') },
+      { label: 'Admin panel', click: () => openSection('admin') },
+      { label: 'Owner (hisobotlar)', click: () => openSection('owner') },
+    ] : [{ label: 'Ofitsiant', click: () => openSection('ofitsiant') }]),
     { type: 'separator' },
     { label: 'Chiqish', click: quit },
   ]));
-  tray.on('double-click', showHome);
-  tray.on('click', showHome);
+}
+// rejim o'zgarganda (ulash / uzish) menyu, tray va asosiy kompyuter oynalari yangilanadi
+function applyMode() {
+  buildMenu();
+  buildTray();
+  if (!isMain()) for (const [name, w] of windows) if (SECTIONS[name]?.main && !w.isDestroyed()) w.close();
+  toHome('oq:mode', { main: isMain() });
 }
 
 function applyAutostart() {
@@ -339,7 +368,7 @@ ipcMain.handle('oq:home:state', async (e) => {
   try {
     printers = (await windowsPrinters()).map((p) => ({ name: p.name, isDefault: Boolean(p.isDefault) }));
   } catch {}
-  return { settings, version: app.getVersion(), agentVersion: AGENT_VERSION, status: agentStatus, logs, printers, platform: process.platform };
+  return { settings, version: app.getVersion(), agentVersion: AGENT_VERSION, status: agentStatus, logs, printers, platform: process.platform, main: isMain(), update: updateState };
 });
 ipcMain.handle('oq:settings:set', async (e, patch) => {
   guard(e);
@@ -354,7 +383,7 @@ ipcMain.handle('oq:settings:set', async (e, patch) => {
     if (!okUrl(u)) throw new Error('Admin manzili https://… ko‘rinishida bo‘lsin');
     next.admin = u;
   }
-  for (const k of ['autostart', 'kassaFullscreen']) if (patch[k] !== undefined) next[k] = Boolean(patch[k]);
+  for (const k of ['autostart', 'fullscreen']) if (patch[k] !== undefined) next[k] = Boolean(patch[k]);
   if (patch.startWith !== undefined) next.startWith = ['home', 'kassa', 'ofitsiant'].includes(patch.startWith) ? patch.startWith : 'home';
   if (patch.htmlPrinter !== undefined) next.htmlPrinter = String(patch.htmlPrinter).slice(0, 200);
   const siteChanged = next.site !== settings.site;
@@ -374,6 +403,7 @@ ipcMain.handle('oq:pair', async (e, code) => {
   }
   saveKey(r.key);
   startAgent();
+  applyMode();
   return true;
 });
 ipcMain.handle('oq:unpair', (e) => {
@@ -382,6 +412,17 @@ ipcMain.handle('oq:unpair', (e) => {
   agent = null;
   saveKey('');
   startAgent();
+  applyMode();
+  return true;
+});
+ipcMain.handle('oq:update:install', (e) => {
+  guard(e);
+  installUpdate();
+  return true;
+});
+ipcMain.handle('oq:update:check', (e) => {
+  guard(e);
+  checkUpdates(true);
   return true;
 });
 ipcMain.handle('oq:scan', (e) => {
@@ -400,6 +441,59 @@ ipcMain.handle('oq:test-html', async (e) => {
   return printHtml(`<!doctype html><meta charset="utf-8"><style>@page{margin:0}body{width:72mm;margin:0 auto;padding:4mm 0;font:14px Arial;text-align:center}</style>
 <h2>Oqtosh Kassa</h2><p>Sinov cheki</p><p>${new Date().toLocaleString('ru-RU')}</p><p>Printer: ${(settings.htmlPrinter || 'asosiy (Windows)').replace(/[<>&]/g, '')}</p>`);
 });
+
+/* ───────── yangilanish (GitHub Releases → latest.yml) ───────── */
+let updater = null;
+let updateState = { status: 'idle', version: '' };
+let askedFor = '';
+const setUpdate = (patch) => {
+  updateState = { ...updateState, ...patch };
+  toHome('oq:update', updateState);
+};
+function installUpdate() {
+  if (!updater || updateState.status !== 'ready') return;
+  quitting = true;
+  agent?.stop();
+  setImmediate(() => updater.quitAndInstall(true, true)); // jim o'rnatadi va qayta ochadi
+}
+function setupUpdater() {
+  if (!app.isPackaged) return;
+  try {
+    ({ autoUpdater: updater } = require('electron-updater'));
+  } catch {
+    return;
+  }
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  updater.on('checking-for-update', () => setUpdate({ status: 'checking' }));
+  updater.on('update-available', (i) => setUpdate({ status: 'downloading', version: i.version, percent: 0 }));
+  updater.on('update-not-available', () => setUpdate({ status: 'latest' }));
+  updater.on('download-progress', (p) => setUpdate({ status: 'downloading', percent: Math.round(p.percent || 0) }));
+  updater.on('error', (e) => setUpdate({ status: 'error', error: String(e?.message || e).slice(0, 200) }));
+  updater.on('update-downloaded', async (i) => {
+    setUpdate({ status: 'ready', version: i.version });
+    if (askedFor === i.version) return;
+    askedFor = i.version;
+    if (Notification.isSupported()) new Notification({ title: `Oqtosh Kassa ${i.version} tayyor`, body: 'Yangilash uchun dasturni qayta ishga tushiring.', icon: ICON }).show();
+    const parent = BrowserWindow.getFocusedWindow() || [...windows.values()].find((w) => !w.isDestroyed() && w.isVisible()) || home;
+    const r = await dialog.showMessageBox(parent && !parent.isDestroyed() ? parent : undefined, {
+      type: 'info', buttons: ['Hozir yangilash', 'Keyinroq'], defaultId: 0, cancelId: 1, noLink: true,
+      title: 'Yangi versiya', message: `Oqtosh Kassa ${i.version} yuklab olindi.`,
+      detail: 'Hozir yangilansinmi? Dastur 10–20 soniyada yopilib, qayta ochiladi. “Keyinroq” — kompyuter o‘chirilganda o‘zi o‘rnatiladi.',
+    });
+    if (r.response === 0) installUpdate();
+  });
+  checkUpdates();
+  setInterval(() => checkUpdates(), 30 * 60_000);
+}
+function checkUpdates(manual = false) {
+  if (!updater) {
+    if (manual) dialog.showMessageBox({ type: 'info', message: 'Yangilagich faqat o‘rnatilgan dasturda ishlaydi.' });
+    return;
+  }
+  updater.checkForUpdates().catch((e) => setUpdate({ status: 'error', error: String(e?.message || e).slice(0, 200) }));
+  if (manual) showHome();
+}
 
 /* ───────── ishga tushish ───────── */
 app.on('second-instance', () => showHome());
@@ -434,8 +528,11 @@ app.whenReady().then(() => {
   buildTray();
   applyAutostart();
   startAgent();
+  setupUpdater();
   if (!hidden) {
-    if (settings.startWith === 'kassa' || settings.startWith === 'ofitsiant') openSection(settings.startWith);
+    // ofitsiant terminali — darhol ofitsiant oynasi (to'liq ekran)
+    if (!isMain()) openSection('ofitsiant');
+    else if (settings.startWith === 'kassa' || settings.startWith === 'ofitsiant') openSection(settings.startWith);
     else showHome();
   }
 });
