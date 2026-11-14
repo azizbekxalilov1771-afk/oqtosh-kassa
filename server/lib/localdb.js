@@ -490,14 +490,17 @@ export class LocalDb {
         this.stats.replayed++;
       }
     }
-    this.fd = fs.openSync(jfile, 'a');
+    // 'a' (append) emas: Windows'da append rejimidagi faylni qisqartirib (ftruncate) va fsync qilib bo'lmaydi —
+    // oddiy yozish rejimida ochib, joyini o'zimiz kuzatamiz
+    if (!fs.existsSync(jfile)) fs.writeFileSync(jfile, '');
+    this.fd = fs.openSync(jfile, 'r+');
     this.bytes = fs.fstatSync(this.fd).size;
     if (this.dirty.size || this.bytes) this.compact();
   }
 
   _log(col, id, data) {
     const line = `${JSON.stringify(data === undefined ? { c: col, i: id, x: 1 } : { c: col, i: id, d: enc(data) })}\n`;
-    this.bytes += fs.writeSync(this.fd, line);
+    this.bytes += fs.writeSync(this.fd, line, this.bytes, 'utf8');
     this.dirty.add(col);
     if (!this.syncTimer) {
       this.syncTimer = setTimeout(() => {
