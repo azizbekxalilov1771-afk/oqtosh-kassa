@@ -26,6 +26,10 @@ Doimiy havola (har doim eng oxirgi versiya):
 
 Keyinroq o‘zgartirish kiritilsa: fayllarni almashtiring, `git add -A && git commit -m yangilash && git push` — yangi Setup.exe o‘zi yig‘iladi.
 
+**Telefon/Termux'siz (faqat brauzer):** GitHub'da repozitoriyni oching → **Add file → Upload files** → yangi
+`oqtosh-desktop.zip`ning **o‘zini** tashlang → **Commit changes**. Yig‘ish zipni o‘zi ochadi, repodagi fayllarni
+yangilaydi, zipni o‘chiradi va yangi Setup.exe chiqaradi (barcha kompyuterlarda “Yangilash” chiqadi).
+
 ## 2. Kassa kompyuteriga o‘rnatish
 
 1. Havolani kompyuterda oching → `Oqtosh-Kassa-Setup.exe` yuklanadi → ikki marta bosing.

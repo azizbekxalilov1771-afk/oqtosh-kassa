@@ -43,6 +43,13 @@ function saveSettings() {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
 const cleanUrl = (u) => String(u || '').trim().replace(/\/+$/, '');
+// Admin sayt boshqa Netlify loyihasiga ko'chgan bo'lsa — kompyuterda saqlangan eski manzil yangisiga almashadi
+if ((defaults.oldAdmin || []).map(cleanUrl).includes(cleanUrl(settings.admin))) {
+  settings.admin = defaults.admin;
+  try {
+    saveSettings();
+  } catch {}
+}
 const okUrl = (u) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(u) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(u);
 
 function loadKey() {
