@@ -68,7 +68,9 @@ jobs:
       - name: Versiya
         run: npm version 2.1.${{ github.run_number }} --no-git-tag-version --allow-same-version
 
+      # bash: PowerShell "-c.publish.repo=..." ni ikkiga bo'lib yuboradi (electron-builder uni fayl deb o'qiydi)
       - name: Setup.exe yig'ish
+        shell: bash
         run: npx electron-builder --win nsis --x64 --publish never -c.publish.provider=github -c.publish.owner=${{ github.repository_owner }} -c.publish.repo=${{ github.event.repository.name }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
