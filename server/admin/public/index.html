@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin panel</title>
+  <meta name="theme-color" content="#0b0b0d">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Golos+Text:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin.css">
+  <link rel="stylesheet" href="/owner.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <!-- Sozlanmagan -->
+  <main class="gate" id="screen-setup" hidden>
+    <div class="gate-card">
+      <img class="gate-mark" src="/logo.jpg" alt="Oqtosh" width="96" height="96">
+      <h1>Admin panel</h1>
+      <p id="setup-text"></p>
+    </div>
+  </main>
+
+  <!-- Kirish -->
+  <main class="gate" id="screen-login" hidden>
+    <form class="gate-card" id="login-form">
+      <img class="gate-mark" src="/logo.jpg" alt="Oqtosh" width="96" height="96">
+      <h1>Admin panelga kirish</h1>
+      <button class="btn btn-block btn-google" type="button" id="google-login">Google hisobi bilan kirish</button>
+      <p class="gate-or"><span>yoki email va parol bilan</span></p>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Parol</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="form-error" id="login-error" role="alert" hidden></p>
+      <button class="btn btn-ghost btn-block" type="submit">Kirish</button>
+      <button class="btn btn-text" type="button" id="forgot">Parolni unutdingizmi?</button>
+    </form>
+  </main>
+
+  <!-- Email tasdiqlanmagan -->
+  <main class="gate" id="screen-verify" hidden>
+    <div class="gate-card">
+      <h1>Emailni tasdiqlang</h1>
+      <p><span id="verify-email"></span> manziliga tasdiqlash havolasini yuboring, pochtangizdagi havolani bosing va keyin "Tekshirish"ni bosing.</p>
+      <button class="btn btn-block" type="button" id="send-verify">Tasdiqlash xatini yuborish</button>
+      <button class="btn btn-ghost btn-block" type="button" id="recheck-verify">Tekshirish</button>
+      <button class="btn btn-text" type="button" data-logout>Boshqa hisob bilan kirish</button>
+    </div>
+  </main>
+
+  <!-- Ruxsat yo'q -->
+  <main class="gate" id="screen-denied" hidden>
+    <div class="gate-card">
+      <h1>Kirish mumkin emas</h1>
+      <p id="denied-text"></p>
+      <button class="btn btn-block" type="button" data-logout>Chiqish</button>
+    </div>
+  </main>
+
+  <!-- Panel -->
+  <div class="shell" id="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="#/">
+        <img class="brand-mark" src="/logo.jpg" alt="" width="34" height="34">
+        Admin panel
+      </a>
+      <div class="topbar-right">
+        <a class="btn btn-ghost btn-small" id="open-site" target="_blank" rel="noopener" hidden>Saytni ochish</a>
+        <span class="me" id="me-email"></span>
+        <button class="btn btn-text btn-small" type="button" data-logout>Chiqish</button>
+      </div>
+    </header>
+    <nav class="side-nav" aria-label="Bo‘limlar">
+      <a href="#/" data-page="">Bosh panel (savdo)</a>
+      <a href="#/kalitlar" data-page="kalitlar">Kalitlar va ulanishlar</a>
+      <a href="#/restoran" data-page="restoran">Restoran ma’lumotlari</a>
+      <a href="#/manzillar" data-page="manzillar">Manzillar</a>
+      <a href="#/yangiliklar" data-page="yangiliklar">Yangiliklar</a>
+      <a href="#/bolimlar" data-page="bolimlar">Bo‘limlar</a>
+      <a href="#/buyurtmalar" data-page="buyurtmalar">Buyurtmalar</a>
+      <a href="#/stollar" data-page="stollar">Stollar</a>
+      <a href="#/menyu" data-page="menyu">Menyu (kg)</a>
+      <a href="#/menyu-tahrir" data-page="menyu-tahrir">Menyu tahriri</a>
+      <a href="#/stol-menyu" data-page="stol-menyu">Stol menyusi (chop)</a>
+      <a href="#/misonsiz" data-page="misonsiz">Misonsiz ishlash</a>
+      <a href="#/yetkazish" data-page="yetkazish">Yetkazib berish</a>
+      <a href="#/mehmonlar" data-page="mehmonlar">Mehmonlar</a>
+      <a href="#/xodimlar" data-page="xodimlar">Xodimlar va ruxsatlar</a>
+      <a href="#/tolovlar" data-page="tolovlar">To‘lovlar</a>
+      <a href="#/ombor" data-page="ombor">Ombor</a>
+      <a href="#/qurilmalar" data-page="qurilmalar">Qurilmalar va printer</a>
+      <a href="#/tayyorlash" data-page="tayyorlash">Tayyorlash joylari</a>
+      <a href="#/chek" data-page="chek">Chek ko‘rinishi</a>
+      <a href="#/owner" data-page="owner">Owner kirishi</a>
+      <a href="#/shikoyatlar" data-page="shikoyatlar">Shikoyatlar</a>
+    </nav>
+    <main id="page" class="content"></main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

@@ -2,7 +2,7 @@
   "name": "oqtosh-kassa",
   "productName": "Oqtosh Kassa",
   "version": "2.1.0",
-  "description": "Oqtosh restoran: kassa, ofitsiant, admin panel, owner hisobotlari va printerlar — bitta dasturda",
+  "description": "Oqtosh restoran: kassa, ofitsiant, admin panel, owner hisobotlari, printerlar va server — bitta dasturda",
   "main": "main.js",
   "author": "Oqtosh Restoran",
   "license": "UNLICENSED",
@@ -27,6 +27,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "server-host.js",
       "config.json",
       "package.json",
       "agent/**",
@@ -57,7 +58,25 @@
     "publish": {
       "provider": "github",
       "releaseType": "release"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!**/*.md",
+          "!**/test/**"
+        ]
+      },
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": [
+          "cloudflared.exe"
+        ]
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.3.9"

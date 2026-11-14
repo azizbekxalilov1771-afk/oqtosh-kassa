@@ -1,0 +1,18 @@
+{
+  "name": "oqtosh-restoran",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "node server.js",
+    "check": "node scripts/check.js",
+    "deploy": "node scripts/deploy.js",
+    "pc": "node pc/server.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

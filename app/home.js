@@ -109,6 +109,8 @@ async function init() {
   f.fullscreen.checked = st.settings.fullscreen !== false;
   f.htmlPrinter.replaceChildren(el('option', { value: '' }, 'Windows’dagi asosiy printer'), ...st.printers.map((p) => el('option', { value: p.name }, `${p.name}${p.isDefault ? ' (asosiy)' : ''}`)));
   f.htmlPrinter.value = st.settings.htmlPrinter || '';
+  paintServer(st.server);
+  for (const l of st.server?.logs || []) addLog({ ...l, text: `[server] ${l.text}` });
 }
 
 OqDesktop.onStatus((s) => {
@@ -172,6 +174,130 @@ $('#settings').addEventListener('submit', async (e) => {
     err.hidden = false;
   }
 });
+
+/* ───────── server kompyuteri ───────── */
+let srv = null;
+const errText = (x) => String(x?.message || x).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+const kb = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+function srvMsg(text, ok = false) {
+  $('#srv-err').hidden = ok || !text;
+  $('#srv-ok').hidden = !ok || !text;
+  (ok ? $('#srv-ok') : $('#srv-err')).textContent = text || '';
+}
+async function srvRun(btn, fn, okText = '') {
+  const label = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+  }
+  srvMsg('');
+  try {
+    const r = await fn();
+    if (okText) srvMsg(typeof okText === 'function' ? okText(r) : okText, true);
+    return r;
+  } catch (x) {
+    srvMsg(errText(x));
+    return null;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+}
+const PHASE = {
+  none: 'Firebase’dan ko‘chirish kutilmoqda — sayt hozircha “texnik ishlar” sahifasini ko‘rsatadi.',
+  essential: 'Firebase’dan ko‘chirilmoqda (sozlamalar, menyu, xodimlar, stollar)…',
+  history: 'Asosiy ma’lumotlar ko‘chdi — sayt ishlayapti. Eski buyurtmalar tarixi ko‘chirilmoqda…',
+  done: 'Firebase’dan ko‘chirish tugagan.',
+  fresh: 'Bo‘sh bazadan boshlangan (ko‘chirishsiz).',
+};
+function paintServer(s) {
+  if (!s) return;
+  srv = s;
+  const on = s.enabled;
+  const st = s.status || {};
+  const mig = s.migration || st.migration || { phase: 'none' };
+  $('#srv-off').hidden = on;
+  $('#srv-onbox').hidden = !on;
+  $('#srv-keys').textContent = s.keys?.ok ? `✓ yuklangan (Firebase loyihasi: ${s.keys.project}, ${s.keys.count} ta qiymat)` : 'yuklanmagan — oqtosh-restoran papkasidagi .env yoki netlify-kalitlar.env fayli kerak';
+  $('#srv-keys').className = s.keys?.ok ? 'ok-inline' : 'err-text';
+  $('#srv-on').disabled = !s.keys?.ok;
+  const pill = $('#srv-pill');
+  if (!on) {
+    pill.textContent = 'o‘chiq';
+    pill.className = 'pill';
+  } else if (!s.running) {
+    pill.textContent = s.starting ? 'ishga tushmoqda…' : 'to‘xtagan';
+    pill.className = 'pill warn';
+  } else if (!st.ready) {
+    pill.textContent = 'texnik ishlar';
+    pill.className = 'pill warn';
+  } else {
+    pill.textContent = s.tunnel?.state === 'on' ? 'ishlayapti · internetda' : 'ishlayapti · faqat shu kompyuterda';
+    pill.className = `pill ${s.tunnel?.state === 'on' ? 'ok' : 'warn'}`;
+  }
+  if (!on) return;
+  const t = s.tunnel || {};
+  const tunnelText = !s.tunnelReady ? 'ulanmagan — pastdagi “Cloudflare’ga ulash”' : t.state === 'on' ? `ulangan (${t.connections} kanal)` : t.state === 'error' ? `xato: ${t.error}` : 'ulanmoqda…';
+  const b = st.backups || {};
+  const db = st.db || {};
+  const link = (what, url) => el('button', { type: 'button', className: 'btn-link', onclick: () => OqDesktop.server.open(what) }, url);
+  $('#srv-facts').replaceChildren(
+    el('dt', {}, 'Holat'), el('dd', {}, s.running ? `${st.ready ? 'tayyor' : 'texnik ishlar (ko‘chirish kutilmoqda)'} · ${st.requests || 0} so‘rov${st.errors ? ` · ${st.errors} xato` : ''}` : s.error || 'to‘xtagan'),
+    el('dt', {}, 'Internet'), el('dd', { className: t.state === 'error' ? 'err-text' : '' }, tunnelText),
+    el('dt', {}, 'Manzillar'), el('dd', {}, link('site', s.urls.site), ' · ', link('admin', s.urls.admin)),
+    el('dt', {}, 'Ma’lumotlar'), el('dd', {}, db.docs !== undefined ? `${db.docs} ta yozuv · ${Object.keys(db.collections || {}).length} bo‘lim` : '—'),
+    el('dt', {}, 'Zaxira'), el('dd', {}, `${b.lastLocalAtMs ? `oxirgisi ${ago(b.lastLocalAtMs)} (${kb(b.lastLocalSize || 0)})` : 'hali yo‘q'} · Telegram: ${b.lastTelegramAtMs ? ago(b.lastTelegramAtMs) : b.lastTelegramError ? `xato — ${b.lastTelegramError}` : 'hali yo‘q'}`),
+    el('dt', {}, 'Papka'), el('dd', {}, s.backupDir || ''),
+    s.error ? el('dt', {}, 'Xato') : '', s.error ? el('dd', { className: 'err-text' }, s.error) : '');
+  // ko'chirish bosqichi
+  const showMig = s.running && mig.phase !== 'done' && mig.phase !== 'fresh';
+  $('#srv-mig').hidden = !showMig;
+  if (showMig) {
+    const extra = mig.lastError ? ` ${mig.lastError}` : mig.col ? ` (${mig.col}: ${mig.docs || 0} ta)` : mig.docs ? ` (${mig.docs} ta)` : '';
+    $('#srv-mig-text').textContent = `${PHASE[mig.phase] || ''}${extra}`;
+    $('#srv-fresh').hidden = mig.phase !== 'none';
+  }
+  $('#srv-cf').hidden = Boolean(s.tunnelReady);
+  if (!$('#srv-domain').value) $('#srv-domain').value = s.domain || '';
+  $('#srv-cf-login').hidden = !t.login;
+}
+$('#srv-keys-find').addEventListener('click', (e) => srvRun(e.currentTarget, async () => {
+  const files = await OqDesktop.server.findKeys();
+  if (!files.length) throw new Error('Kompyuterda oqtosh-restoran papkasi (.env) topilmadi — “Faylni tanlash…” bilan ko‘rsating.');
+  await OqDesktop.server.importKeys(files);
+  paintServer(await OqDesktop.server.state());
+  return files;
+}, (files) => `Kalitlar yuklandi: ${files.join(', ')}`));
+for (const id of ['#srv-keys-pick', '#srv-keys-again']) {
+  $(id).addEventListener('click', (e) => srvRun(e.currentTarget, async () => {
+    await OqDesktop.server.importKeys([]);
+    paintServer(await OqDesktop.server.state());
+  }));
+}
+$('#srv-on').addEventListener('click', (e) => srvRun(e.currentTarget, async () => paintServer(await OqDesktop.server.enable(true)), 'Server ishga tushirildi.'));
+$('#srv-offbtn').addEventListener('click', (e) => {
+  if (!confirm('Server o‘chirilsinmi? Sayt va admin panel bu kompyuterdan ishlamay qoladi (ma’lumotlar o‘chmaydi).')) return;
+  srvRun(e.currentTarget, async () => paintServer(await OqDesktop.server.enable(false)), 'Server o‘chirildi.');
+});
+$('#srv-migrate').addEventListener('click', (e) => srvRun(e.currentTarget, () => OqDesktop.server.migrate(), (r) => (r?.lastError ? r.lastError : `Ko‘chirildi: ${r?.docs || 0} ta yozuv.`)));
+$('#srv-fresh').addEventListener('click', (e) => {
+  if (!confirm('Firebase’dagi ma’lumotlarsiz, bo‘sh bazadan boshlansinmi? (Xodimlar, menyu sozlamalari, tarix — hammasi qaytadan kiritiladi.) Odatda bu kerak emas — “Firebase’dan ko‘chirish”ni kuting.')) return;
+  srvRun(e.currentTarget, () => OqDesktop.server.fresh(), 'Bo‘sh baza bilan ishga tushdi.');
+});
+$('#srv-cf-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  srvRun(e.currentTarget.querySelector('button'), () => OqDesktop.server.tunnel($('#srv-domain').value), 'Cloudflare ulandi — bir necha daqiqada sayt internetda ochiladi.');
+});
+$('#srv-cf-link').addEventListener('click', () => srv?.tunnel?.login && window.open(srv.tunnel.login, '_blank'));
+$('#srv-backup').addEventListener('click', (e) => srvRun(e.currentTarget, () => OqDesktop.server.backup(), (r) => `Zaxira saqlandi: ${r.file}`));
+$('#srv-backup-tg').addEventListener('click', (e) => srvRun(e.currentTarget, () => OqDesktop.server.backupTelegram(), 'Zaxira Telegram’ga yuborildi (admin chati).'));
+$('#srv-restore').addEventListener('click', (e) => srvRun(e.currentTarget, () => OqDesktop.server.restore(), (r) => (r ? `Tiklandi: ${r.docs} ta yozuv (${new Date(r.at).toLocaleString('ru-RU')}).` : '')));
+$('#srv-open-bk').addEventListener('click', () => OqDesktop.server.open('backups'));
+$('#srv-open-log').addEventListener('click', () => OqDesktop.server.open('log'));
+OqDesktop.server.onState(paintServer);
+OqDesktop.server.onLog((l) => addLog({ ...l, text: `[server] ${l.text}` }));
 
 setInterval(paint, 30_000);
 init();

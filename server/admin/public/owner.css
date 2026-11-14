@@ -1,0 +1,99 @@
+/* Owner — savdo hisobotlari. Admin panel ranglari; grafik rangi qorong'i fonda tekshirilgan oltin (#bf8226). */
+:root { --bar: #bf8226; --bar-hi: #d39a3c; --good: #8fca5b; --bad: #e07a5f; }
+.owner-body { background: var(--bg); }
+.owner-shell { min-height: 100vh; }
+.owner-main { max-width: 1240px; margin: 0 auto; padding: 24px 24px 64px; display: grid; gap: 18px; transition: opacity .2s; }
+.owner-main.is-loading { opacity: .55; }
+.ow-head h1 { margin: 6px 0 4px; font-family: var(--display, 'Playfair Display', serif); font-size: clamp(28px, 4vw, 40px); }
+.ow-head p { margin: 0; }
+
+.ow-filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.ow-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ow-chip, .ow-seg-btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 99px; padding: 7px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 38px; }
+.ow-chip:hover, .ow-seg-btn:hover { border-color: var(--muted); }
+.ow-chip.is-on, .ow-seg-btn.is-on { background: var(--cobalt); color: #1a1408; border-color: transparent; }
+.ow-range { display: flex; align-items: center; gap: 6px; }
+.ow-range input { min-height: 38px; padding: 4px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; color-scheme: dark; }
+.ow-seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); }
+.ow-seg .ow-seg-btn { border: 0; min-height: 32px; padding: 5px 12px; background: transparent; }
+.ow-seg .ow-seg-btn.is-on { background: var(--cobalt); }
+.ow-seg.small .ow-seg-btn { font-size: 13px; min-height: 28px; padding: 3px 10px; }
+
+.ow-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ow-tile { display: grid; gap: 4px; align-content: start; padding: 16px 18px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); }
+.ow-tile-label { color: var(--muted); font-size: 14px; }
+.ow-tile-value { font-size: clamp(20px, 2.2vw, 26px); font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.ow-delta { font-size: 13px; font-weight: 600; }
+.ow-delta.is-good { color: var(--good); }
+.ow-delta.is-bad { color: var(--bad); }
+
+.ow-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 18px; align-items: start; }
+.ow-grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 18px; align-items: start; }
+.ow-card { min-width: 0; padding: 18px 20px 20px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 12px; align-content: start; }
+.ow-card-head h2 { margin: 0; font-size: 18px; }
+.ow-card-head p { margin: 2px 0 0; }
+
+.ow-chart { width: 100%; min-height: 200px; }
+.ow-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ow-grid { stroke: var(--line); stroke-width: 1; }
+.ow-axis { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.ow-val { fill: var(--ink); font-size: 11px; font-weight: 700; font-family: inherit; }
+.ow-bar { fill: var(--bar); transition: fill .12s; }
+.ow-col.is-hi .ow-bar { fill: var(--bar-hi); }
+.ow-hit { fill: transparent; }
+.ow-col { outline: none; cursor: default; }
+.ow-col:hover .ow-bar, .ow-col:focus .ow-bar { fill: var(--bar-hi); }
+.ow-col:focus-visible .ow-hit { fill: rgb(255 255 255 / .05); }
+.ow-tip { position: fixed; z-index: 50; pointer-events: none; display: grid; gap: 2px; padding: 8px 12px; border-radius: 10px; background: #26231f; border: 1px solid #3a352e; box-shadow: 0 10px 24px rgb(0 0 0 / .45); font-size: 13px; color: var(--muted); }
+.ow-tip strong { color: var(--ink); font-size: 15px; }
+
+.ow-hbars { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ow-hb-top { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.ow-hb-top strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-hb-name { min-width: 0; overflow-wrap: anywhere; }
+.ow-hb-track { height: 8px; margin: 5px 0 3px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.ow-hb-fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--bar); }
+
+.ow-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ow-search { flex: 1 1 200px; min-height: 38px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px; }
+.ow-table-wrap { overflow-x: auto; margin: 0 -4px; }
+.ow-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ow-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ow-table td { padding: 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: middle; }
+.ow-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-table td:first-child { width: 1%; }
+.ow-table .share { width: 26%; min-width: 120px; }
+.ow-share { display: flex; align-items: center; gap: 8px; }
+.ow-share .ow-mini { flex: 1; width: auto; margin: 0; }
+.ow-share span { width: 44px; text-align: right; white-space: nowrap; }
+.ow-pname { display: block; font-weight: 600; }
+.ow-mini { display: inline-block; width: calc(100% - 48px); height: 8px; margin-right: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.ow-mini-fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--bar); }
+.ow-unsold summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.ow-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.ow-tag { padding: 4px 10px; border-radius: 99px; background: var(--surface-2); font-size: 13px; }
+.ow-mini-stats { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.ow-mini-stats div { display: grid; }
+.ow-mini-stats strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.ow-foot { text-align: center; }
+
+@media (max-width: 640px) {
+  .owner-main { padding: 16px 16px 48px; }
+  .ow-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ow-tile-value { font-size: 19px; }
+  .ow-tile { padding: 12px 14px; }
+  .ow-card { padding: 14px 14px 16px; }
+  .ow-table .share { display: none; }
+  .ow-range input { width: 140px; }
+}
+
+/* Admin bosh sahifasiga joylangan Owner hisoboti va kassa/ombor tafsilotlari */
+.owner-embed { max-width: none; padding: 0 0 28px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+.ow-extras { display: grid; gap: 18px; }
+.ow-section { margin: 10px 0 0; font: 600 1.25rem/1.2 var(--display, Georgia, serif); }
+.ow-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.ow-strip > div { padding: 12px 14px; border-radius: 14px; background: var(--surface, #161619); border: 1px solid var(--line); display: grid; gap: 2px; }
+.ow-table td.is-bad, .ow-table .num.is-bad { color: #ff9d8a; font-weight: 600; }
+.ow-extras details summary { cursor: pointer; margin: 10px 0 6px; color: var(--muted); }
+@media (max-width: 900px) { .ow-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ow-stack { display: grid; gap: 18px; }

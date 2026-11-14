@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menyu — Oqtosh Restoran</title>
+  <meta name="description" content="Oqtosh Restoran menyusi va narxlari. Savollaringizga yordamchi darhol javob beradi.">
+  <meta name="theme-color" content="#0b0b0d">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/js/menyu.js"></script>
+</head>
+<body class="order-page">
+  <a class="skip" href="#menyu">Menyuga o‘tish</a>
+
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Bosh sahifaga qaytish">
+      <svg class="brand-mark" data-logo="header" viewBox="-20 -20 40 40" aria-hidden="true">
+        <circle r="19" class="f-cobalt"/><circle r="12" class="f-plate"/><circle r="4" class="f-ishkor"/>
+      </svg>
+      <span data-info="name">Oqtosh Restoran</span>
+    </a>
+    <nav class="nav" aria-label="Bo‘limlar">
+      <a href="#menyu">Menyu</a>
+      <a href="#yordamchi">Savol berish</a>
+      <a href="#shikoyat" id="nav-complaint">Shikoyat</a>
+    </nav>
+    <a class="btn btn-small" id="header-call" hidden>Qo‘ng‘iroq qilish</a>
+  </header>
+
+  <main>
+    <div class="order-strip" id="order-strip" hidden>
+      <p id="order-strip-text">Buyurtma berish uchun qo‘ng‘iroq qiling yoki Telegram’da yozing.</p>
+      <div class="order-strip-actions" id="order-strip-actions"></div>
+    </div>
+
+    <section id="menyu" class="block menu-section" aria-labelledby="menu-title">
+      <a class="back" href="/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Bosh sahifa
+      </a>
+      <div class="section-head">
+        <h1 id="menu-title">Menyu</h1>
+        <p class="note" id="menu-note">Narxlar kassa tizimidan avtomatik yangilanadi.</p>
+      </div>
+      <div class="menu-tools">
+        <input type="search" id="menu-search" placeholder="Taom qidirish" aria-label="Taom qidirish" autocomplete="off">
+        <div class="chips" id="menu-cats" aria-label="Kategoriyalar"></div>
+      </div>
+      <div id="menu-list" class="menu-list" aria-live="polite">
+        <div class="menu-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+    </section>
+
+    <section id="yordamchi" class="block assistant" aria-labelledby="assistant-title">
+      <div class="assistant-intro">
+        <h2 id="assistant-title">Savolingiz bormi?</h2>
+        <p>Menyu, narxlar, ish vaqti, manzillar yoki yetkazib berish haqida so‘rang — yordamchi saytdagi ma’lumotlar asosida darhol javob beradi.</p>
+        <p>Nimadandir norozi bo‘lsangiz, shikoyatingiz to‘g‘ridan-to‘g‘ri restoran rahbariyatiga boradi.</p>
+      </div>
+
+      <div class="panel">
+        <div class="tabs" role="tablist" aria-label="Yordamchi bo‘limlari">
+          <button role="tab" id="tab-chat" aria-controls="pane-chat" aria-selected="true">Savol berish</button>
+          <button role="tab" id="tab-complaint" aria-controls="pane-complaint" aria-selected="false" tabindex="-1">Shikoyat qoldirish</button>
+        </div>
+
+        <div class="pane" id="pane-chat" role="tabpanel" aria-labelledby="tab-chat">
+          <div class="chat-log" id="chat-log" aria-live="polite">
+            <div class="msg bot">Assalomu alaykum! Menyu, narxlar yoki ish vaqti haqida so‘rang.</div>
+          </div>
+          <div class="suggestions" id="suggestions">
+            <button type="button">Bugun soat nechagacha ishlaysizlar?</button>
+            <button type="button">Eng mashhur taomingiz qaysi?</button>
+            <button type="button">Yetkazib berish bormi?</button>
+          </div>
+          <form class="chat-form" id="chat-form">
+            <input id="chat-input" name="q" maxlength="1000" autocomplete="off" placeholder="Savolingizni yozing" aria-label="Savol" required>
+            <button class="btn" type="submit">Yuborish</button>
+          </form>
+        </div>
+
+        <div class="pane" id="pane-complaint" role="tabpanel" aria-labelledby="tab-complaint" hidden>
+          <form id="complaint-form" class="complaint-form" novalidate>
+            <div class="field-row">
+              <label>Ismingiz
+                <input name="name" autocomplete="name" maxlength="80">
+              </label>
+              <label>Telefon
+                <input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+998 90 123 45 67" maxlength="25">
+              </label>
+            </div>
+            <div class="field-row">
+              <label>Mavzu
+                <select name="topic">
+                  <option value="food">Taom sifati</option>
+                  <option value="service">Xizmat ko‘rsatish</option>
+                  <option value="delivery">Yetkazib berish</option>
+                  <option value="clean">Tozalik</option>
+                  <option value="price">Narx yoki hisob</option>
+                  <option value="other">Boshqa</option>
+                </select>
+              </label>
+              <label>Tashrif sanasi
+                <input name="visitDate" type="date">
+              </label>
+            </div>
+            <label>Nima bo‘ldi?
+              <textarea name="message" rows="5" minlength="10" maxlength="2000" required></textarea>
+            </label>
+            <label class="hp" aria-hidden="true">Sayt
+              <input name="website" tabindex="-1" autocomplete="off">
+            </label>
+            <p class="form-hint">Telefon raqamingizni qoldirsangiz, rahbariyat siz bilan bog‘lanadi.</p>
+            <p class="form-error" id="complaint-error" role="alert" hidden></p>
+            <button class="btn" type="submit">Shikoyatni yuborish</button>
+          </form>
+          <div class="complaint-done" id="complaint-done" tabindex="-1" hidden>
+            <h3>Shikoyat yuborildi</h3>
+            <p id="complaint-done-text">Rahmat. Shikoyatingiz rahbariyatga yetkazildi.</p>
+            <button class="btn btn-ghost" type="button" id="complaint-again">Yana yozish</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span><span data-info="name">Oqtosh Restoran</span>, <span data-year></span></span>
+    <a href="/">Bosh sahifa</a>
+  </footer>
+</body>
+</html>

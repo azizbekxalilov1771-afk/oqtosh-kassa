@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Kuryer — Oqtosh Restoran</title>
+  <meta name="theme-color" content="#0b0b0d">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="order.css">
+  <script type="module" src="js/kuryer.js"></script>
+</head>
+<body class="order-app staff-app kuryer-app">
+  <header class="app-header">
+    <a class="brand" href="kuryer.html" aria-label="Kuryer sahifasi">
+      <svg class="brand-mark" data-logo="header" viewBox="-20 -20 40 40" aria-hidden="true">
+        <circle r="19" class="f-cobalt"/><circle r="12" class="f-plate"/><circle r="4" class="f-ishkor"/>
+      </svg>
+      <span>Kuryer</span>
+    </a>
+    <span class="staff-name" id="staff-name"></span>
+    <nav class="app-tabs" id="kuryer-tabs" aria-label="Kuryer bo‘limlari" hidden>
+      <a href="#yangi" data-tab="yangi">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
+        <span>Yangi</span><b class="tab-badge" id="badge-yangi" hidden></b>
+      </a>
+      <a href="#mening" data-tab="mening">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8 18h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>
+        <span>Yo‘ldagi</span><b class="tab-badge" id="badge-mening" hidden></b>
+      </a>
+      <a href="#yetkazilgan" data-tab="yetkazilgan">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg>
+        <span>Yetkazildi</span>
+      </a>
+    </nav>
+  </header>
+  <main class="app-main" id="app" aria-live="polite">
+    <p class="app-loading">Yuklanmoqda…</p>
+  </main>
+</body>
+</html>

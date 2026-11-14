@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Kassa — Oqtosh Restoran</title>
+  <meta name="theme-color" content="#0b0b0d">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="order.css">
+  <script type="module" src="js/kassa.js"></script>
+</head>
+<body class="order-app staff-app kassa-app">
+  <header class="app-header">
+    <a class="brand" href="kassa.html" aria-label="Kassa sahifasi">
+      <svg class="brand-mark" data-logo="header" viewBox="-20 -20 40 40" aria-hidden="true">
+        <circle r="19" class="f-cobalt"/><circle r="12" class="f-plate"/><circle r="4" class="f-ishkor"/>
+      </svg>
+      <span>Kassa</span>
+    </a>
+    <span class="staff-name" id="staff-name"></span>
+    <nav class="app-tabs" id="kassa-tabs" aria-label="Kassa bo‘limlari" hidden>
+      <a href="#stollar" data-tab="stollar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+        <span>Stollar</span><b class="tab-badge" id="kassa-badge" hidden></b>
+      </a>
+      <a href="#yetkazish" data-tab="yetkazish">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l4-7h5l3 7M10 10l-1.5-3H6M15 10l1-3h2.5"/></svg>
+        <span>Yetkazish</span>
+      </a>
+      <a href="#smena" data-tab="smena">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6.5" width="17" height="12" rx="2"/><path d="M3.5 10.5h17M7.5 14.5h3"/></svg>
+        <span>Smena</span>
+      </a>
+      <a href="#tarix" data-tab="tarix">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2v-16a1 1 0 0 1 1-1zM9 8.5h6M9 12h6"/></svg>
+        <span>Tarix</span>
+      </a>
+    </nav>
+  </header>
+  <main class="app-main" id="app" aria-live="polite">
+    <p class="app-loading">Yuklanmoqda…</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uz.oqtoshrestoran.app",
+      "sha256_cert_fingerprints": [
+        "34:AD:D9:1F:F6:02:FF:97:28:0C:DC:BD:C4:E4:07:A6:6E:14:5D:19:B8:C9:EE:C1:E4:8B:D8:B0:4D:00:B8:ED"
+      ]
+    }
+  }
+]

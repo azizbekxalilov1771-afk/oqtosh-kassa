@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Owner · Savdo hisobotlari</title>
+  <meta name="theme-color" content="#0b0b0d">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin.css">
+  <link rel="stylesheet" href="/owner.css">
+  <script type="module" src="/js/owner.js"></script>
+</head>
+<body class="owner-body">
+  <main class="gate" id="screen-setup" hidden>
+    <div class="gate-card"><img class="gate-mark" src="/logo.jpg" alt="Oqtosh" width="96" height="96"><h1>Owner</h1><p id="setup-text"></p></div>
+  </main>
+
+  <main class="gate" id="screen-login" hidden>
+    <form class="gate-card" id="login-form">
+      <img class="gate-mark" src="/logo.jpg" alt="Oqtosh" width="96" height="96">
+      <h1>Owner — savdo hisobotlari</h1>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Parol</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="form-error" id="login-error" role="alert" hidden></p>
+      <button class="btn btn-block" type="submit">Kirish</button>
+      <p class="muted small">Hisobni restoran admini “Owner kirishi” bo‘limida ochadi.</p>
+    </form>
+  </main>
+
+  <main class="gate" id="screen-denied" hidden>
+    <div class="gate-card">
+      <h1>Kirish mumkin emas</h1>
+      <p id="denied-text"></p>
+      <button class="btn btn-block" type="button" data-logout>Chiqish</button>
+    </div>
+  </main>
+
+  <div class="owner-shell" id="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="/owner/">
+        <img class="brand-mark" src="/logo.jpg" alt="" width="34" height="34">
+        Owner
+      </a>
+      <div class="topbar-right">
+        <a class="btn btn-ghost btn-small" id="to-admin" href="/" hidden>Admin panel</a>
+        <span class="me" id="me-email"></span>
+        <button class="btn btn-text btn-small" type="button" data-logout>Chiqish</button>
+      </div>
+    </header>
+    <main id="report" class="owner-main"></main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
