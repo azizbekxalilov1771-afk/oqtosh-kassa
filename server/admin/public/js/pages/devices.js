@@ -140,10 +140,94 @@ export async function render(root) {
     }
   }, 'btn-ghost btn-small');
 
+  /* ── Oqtosh Kassa dasturi o'rnatilgan kompyuterlar: masofadan o'chirish / qayta yoqish ── */
+  const pcList = el('ul', { className: 'item-list pc-list' });
+  const pcHead = el('div', { className: 'row wrap align-center pc-head' });
+  let pcs = [];
+  // shu sahifa Oqtosh Kassa dasturi ichida ochilgan bo'lsa — o'z kompyuteri "hammasini o'chirish"ga kirmaydi
+  const selfId = window.OqDesktop?.deviceId || '';
+  const CMD = { shutdown: 'o‘chirish', restart: 'qayta yoqish', cancel: 'bekor qilish' };
+  const RES = { started: 'boshlandi — 60 soniyada', cancelled: 'bekor qilindi', refused: 'rad etdi', error: 'xato' };
+  async function pcReload() {
+    try {
+      pcs = (await api('/desktops')).items || [];
+    } catch (err) {
+      pcList.replaceChildren(el('li', { className: 'empty', textContent: err.message }));
+      return;
+    }
+    pcPaint();
+  }
+  const pcSend = async (ids, action, label) => {
+    try {
+      const r = await api('/desktops/command', { method: 'POST', body: { ids, action } });
+      const skip = r.skipped.length ? ` O‘tkazib yuborildi: ${r.skipped.map((x) => `${x.name} (${x.reason})`).join(', ')}.` : '';
+      toast(r.sent.length ? `${label}: ${r.sent.map((x) => x.name).join(', ')} — buyruq yuborildi, 20 soniya ichida bajariladi.${skip}` : `Hech biriga yuborilmadi.${skip}`, r.sent.length ? '' : 'error');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+    await pcReload();
+  };
+  function pcPaint() {
+    const targets = pcs.filter((p) => p.online && !p.server && p.id !== selfId);
+    pcHead.replaceChildren(
+      el('p', { className: 'muted small grow', textContent: targets.length ? `${targets.length} ta kompyuter yoqilgan.` : 'Hozir boshqa yoqilgan kompyuter yo‘q.' }),
+      targets.length ? btn(`⏻ Hammasini o‘chirish (${targets.length})`, (e) => {
+        if (!confirm(`${targets.map((p) => p.name).join(', ')} — hammasi o‘chirilsinmi?\n\nHar birining ekranida 60 soniya ogohlantirish chiqadi, xodim “Bekor qilish”ni bosishi mumkin.${selfId ? '\nShu kompyuter o‘chirilmaydi.' : ''}`)) return;
+        busy(e.currentTarget, '…', () => pcSend(targets.map((p) => p.id), 'shutdown', 'O‘chirish'));
+      }, 'btn-ghost btn-small danger') : '');
+    pcList.replaceChildren(...(pcs.length ? pcs.map((p) => {
+      const c = p.command;
+      const status = c ? (c.pending ? `⏳ ${CMD[c.action]} buyrug‘i yuborildi (${c.byName})` : c.expired ? `${CMD[c.action]} — kompyuter olmadi (vaqti o‘tdi)` : `${CMD[c.action]}: ${RES[c.result] || c.result}${c.error ? ` (${c.error})` : ''} · ${ago(c.at)}`) : '';
+      const actions = [];
+      const isSelf = p.id === selfId;
+      if (p.online && !p.server) {
+        const started = c && (c.pending || c.result === 'started') && c.action !== 'cancel' && Date.now() - new Date(c.at) < 5 * 60_000;
+        if (started) actions.push(btn('Bekor qilish', (e) => busy(e.currentTarget, '…', () => pcSend([p.id], 'cancel', 'Bekor qilish')), 'btn-small'));
+        actions.push(btn('⏻ O‘chirish', (e) => {
+          if (!confirm(`${p.name} o‘chirilsinmi?${isSelf ? '\n\nDiqqat: bu — siz hozir ishlayotgan kompyuter.' : ''}\n\nEkranda 60 soniya ogohlantirish chiqadi.`)) return;
+          busy(e.currentTarget, '…', () => pcSend([p.id], 'shutdown', 'O‘chirish'));
+        }, 'btn-ghost btn-small'));
+        actions.push(btn('↻ Qayta yoqish', (e) => {
+          if (!confirm(`${p.name} qayta yoqilsinmi (restart)?`)) return;
+          busy(e.currentTarget, '…', () => pcSend([p.id], 'restart', 'Qayta yoqish'));
+        }, 'btn-ghost btn-small'));
+      }
+      if (!p.online) {
+        actions.push(btn('Ro‘yxatdan o‘chirish', (e) => {
+          if (!confirm(`${p.name} ro‘yxatdan olib tashlansinmi? Dastur yana yoqilsa, qaytadan paydo bo‘ladi.`)) return;
+          busy(e.currentTarget, '…', async () => {
+            try {
+              await api(`/desktops/${encodeURIComponent(p.id)}`, { method: 'DELETE' });
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+            await pcReload();
+          });
+        }, 'btn-text btn-small danger'));
+      }
+      return el('li', { className: `item device-item${p.main ? ' is-station' : ''}` },
+        el('span', { className: 'device-kind', textContent: '💻', ariaHidden: 'true' }),
+        el('div', { className: 'item-main' },
+          el('h3', {}, p.name,
+            p.server ? el('span', { className: 'role-badge', textContent: 'server' }) : p.main ? el('span', { className: 'role-badge is-cashier', textContent: 'asosiy' }) : '',
+            isSelf ? el('span', { className: 'role-badge', textContent: 'shu kompyuter' }) : '',
+            el('span', { className: `dot ${p.online ? 'is-on' : ''}`, title: p.online ? 'Yoqilgan' : 'O‘chiq' })),
+          el('p', { className: 'muted', textContent: [p.version && `Oqtosh Kassa ${p.version}`, p.os].filter(Boolean).join(' · ') }),
+          el('p', { className: 'small muted', textContent: p.online ? '● yoqilgan' : `o‘chiq · oxirgi marta: ${ago(p.lastSeenAt)}` }),
+          status ? el('p', { className: 'small', textContent: status }) : '',
+          p.server ? el('p', { className: 'small muted', textContent: 'Server kompyuterini masofadan o‘chirib bo‘lmaydi — sayt to‘xtab qoladi.' }) : ''),
+        el('div', { className: 'item-actions' }, ...actions));
+    }) : [el('li', { className: 'empty', textContent: 'Hali hech bir kompyuter yo‘q. Oqtosh Kassa dasturi (Setup.exe) o‘rnatilgan kompyuter yoqilganda shu yerda o‘zi paydo bo‘ladi.' })]));
+  }
+  pcReload();
+  // ochiq turganda holat yangilanib turadi (sahifadan chiqilsa — to'xtaydi)
+  const pcTimer = setInterval(() => (root.isConnected ? pcReload() : clearInterval(pcTimer)), 10_000);
+
   paint();
   root.append(
     pageHead('Qurilmalar', 'Xodimlar kirgan telefon va kompyuterlar. Printer ulangan kassa kompyuterini “chek printeri” qilib tanlang — ofitsiant va kassir telefondan bosgan cheklar o‘sha printerdan chiqadi.',
       btn('Yangilash', (e) => busy(e.currentTarget, '…', reload), 'btn-ghost')),
+    card('💻 Kompyuterlar (Oqtosh Kassa dasturi)', 'Dastur o‘rnatilgan kompyuterlarni shu yerdan o‘chirish yoki qayta yoqish mumkin. Kompyuter ekranida 60 soniya ogohlantirish chiqadi.', pcHead, pcList),
     card('Chek printeri', '', statusBox, el('div', { className: 'grid-2' }, paper.node, footer.node), el('div', { className: 'row' }, save)),
     card('Qurilmalar', '', list),
     card('Kassa kompyuterini sozlash (bir marta)', 'Chek oynasiz, darhol chiqishi uchun.',

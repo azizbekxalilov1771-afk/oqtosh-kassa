@@ -9,6 +9,14 @@ const api = {
   version: ipcRenderer.sendSync('oq:version'),
   printHtml: (html) => ipcRenderer.invoke('oq:print-html', String(html)),
   open: (section, hash = '') => ipcRenderer.invoke('oq:open', String(section), String(hash)),
+  // admin panel → Qurilmalar → Kompyuterlar: "shu kompyuter" belgisi uchun (maxfiy kalit emas)
+  deviceId: (() => {
+    try {
+      return ipcRenderer.sendSync('oq:device-id') || '';
+    } catch {
+      return '';
+    }
+  })(),
 };
 if (local) {
   Object.assign(api, {
@@ -179,6 +187,7 @@ async function mountMenu() {
       ...st.sections.map((s) => item(ICONS[s.id] || '•', s.title, () => ipcRenderer.invoke('oq:open', s.id, ''), s.id === cur ? 'is-on' : '')),
       sep(),
       item('⛶', st.fullscreen ? 'To‘liq ekrandan chiqish' : 'To‘liq ekran', () => ipcRenderer.invoke('oq:win', 'fullscreen')),
+      ...(st.main ? [item('💻', 'Kompyuterlarni o‘chirish', () => ipcRenderer.invoke('oq:open', 'admin', '/qurilmalar'))] : []),
       item('⌨', OSK_LABEL[st.osk] || OSK_LABEL.auto, () => ipcRenderer.invoke('oq:osk:set', OSK_NEXT[st.osk] || 'on'), st.osk === 'off' ? '' : 'is-on'),
       item('↻', 'Sahifani yangilash', () => location.reload()));
     panel.hidden = false;

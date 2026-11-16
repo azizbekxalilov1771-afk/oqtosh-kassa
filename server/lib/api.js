@@ -40,6 +40,7 @@ import { touchDevice, printInfo, requestPrint, stationJobs, finishJob, printPaid
 import { getWorkplace, isWorkplaceIp, passwordLogin, pinLogin, PW_SESSION_HOURS } from './workplace.js';
 import { requireAgent, agentHello, agentJobs, agentFinish, pairWithCode } from './agent.js';
 import { saveAgentCameras } from './cameras.js';
+import { desktopPing, desktopAck } from './desktops.js';
 import { ownerReport } from './owner.js';
 import './kitchen.js'; // printer IP→MAC ko'chishida sozlamalarni yangilash uchun
 
@@ -57,7 +58,7 @@ const profileOut = async (c) => ({ ...publicProfile(c), ...(STAFF_ROLES.includes
 // scope: 'public' — mijozlar sayti (xodim API'lari yopiq, ular admin saytiga ko'chgan);
 //        'staff'  — admin saytidagi xodim sahifalari (/xodim/...) uchun; 'all' — lokal ishga tushirish va sinov
 const STAFF_ROUTE = /^\/api\/(staff|kassa|kuryer|ombor)(\/|$)|^\/api\/auth\/password$/;
-const STAFF_SITE_ROUTE = /^\/api\/(staff|kassa|kuryer|ombor|print-agent)(\/|$)|^\/api\/(auth\/(password|logout)|me|info|menu|delivery|health)$/;
+const STAFF_SITE_ROUTE = /^\/api\/(staff|kassa|kuryer|ombor|print-agent|desktop)(\/|$)|^\/api\/(auth\/(password|logout)|me|info|menu|delivery|health)$/;
 
 // Buyurtma, stol hisobi, chaqiruv, smena, chek yoki yetkazishni o'zgartiradigan so'rovlar — muvaffaqiyatli
 // bo'lsa, xodim sahifalariga "yurak urishi" yuboriladi (ular faqat shunda yangilanadi; lib/pulse.js)
@@ -149,6 +150,14 @@ async function handleApiInner(request, { ip = 'unknown', scope = 'all' } = {}) {
       if (route === '/api/print-agent/jobs' && method === 'GET') return json(await agentJobs());
       if (route === '/api/print-agent/cameras' && method === 'POST') return json(await saveAgentCameras(await readJson(request, 100_000)));
       if (parts[3] === 'jobs' && parts[4] && method === 'POST') return json(await agentFinish(parts[4], await readJson(request)));
+      return json({ error: 'Topilmadi' }, 404);
+    }
+
+    /* ───────── Oqtosh Kassa dasturi o'rnatilgan kompyuterlar (masofadan o'chirish) ───────── */
+    if (parts[2] === 'desktop' && method === 'POST') {
+      rateLimit(`desktop:${ip}`, 120, 60_000);
+      if (route === '/api/desktop/ping') return json(await desktopPing(await readJson(request, 4000), ip));
+      if (route === '/api/desktop/ack') return json(await desktopAck(await readJson(request, 4000)));
       return json({ error: 'Topilmadi' }, 404);
     }
 

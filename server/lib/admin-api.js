@@ -22,6 +22,7 @@ import { listGuests, clearGuestHistory, deleteGuest, clearAllHistory } from './g
 import { listDevicesForAdmin, savePrinting, renameDevice, deleteDevice, testPrint, brandOf, getPrinting } from './printing.js';
 import { kitchenForAdmin, saveKitchen, getKitchen, printKitchen } from './kitchen.js';
 import { agentStatus, askScan, listPrinters, addManualPrinter, updatePrinter, deletePrinter, testPrinter, newAgentKey, revokeAgent, recentAgentJobs, newPairCode } from './agent.js';
+import { listDesktops, commandDesktops, deleteDesktop } from './desktops.js';
 import { setupRing, disableRing, ringStatus } from './doorbell.js';
 import { buildAgentScript, AGENT_VERSION } from './agent-script.js';
 import { ownerReport, ownerExtras } from './owner.js';
@@ -484,6 +485,13 @@ function createAdminApiInner({ verifier: base = firebaseVerify } = {}) {
         return done('printing.save', `printer=${r.stationId || '—'} ${r.paper}mm`, { printing: r });
       }
       if (path === '/printing/test' && method === 'POST') return done('printing.test', '', await testPrint(admin.email));
+      // ── Oqtosh Kassa dasturi o'rnatilgan kompyuterlar: o'chirish / qayta yoqish ──
+      if (path === '/desktops' && method === 'GET') return json({ items: await listDesktops() });
+      if (path === '/desktops/command' && method === 'POST') {
+        const r = await commandDesktops(body?.ids, String(body?.action || ''), admin.email);
+        return done(`desktop.${body?.action}`, r.sent.map((x) => x.name).join(', ') || '—', r);
+      }
+      if (section === 'desktops' && itemId && method === 'DELETE') return done('desktop.delete', itemId, await deleteDesktop(itemId));
       if (section === 'devices' && itemId) {
         if (method === 'PUT') return done('device.rename', itemId, await renameDevice(itemId, body?.name));
         if (method === 'DELETE') return done('device.delete', itemId, await deleteDevice(itemId));

@@ -15,6 +15,9 @@ const fs = require('node:fs');
 const { Agent, pair, VERSION: AGENT_VERSION } = require('./agent/core');
 const { makeRawPrint } = require('./agent/raw-win');
 const cams = require('./agent/cameras');
+const os = require('node:os');
+const crypto = require('node:crypto');
+const { execFile } = require('node:child_process');
 const { ServerHost } = require('./server-host');
 const defaults = require('./config.json');
 
@@ -758,6 +761,102 @@ ipcMain.handle('oq:server:open', serverCall((what) => {
   return false;
 }));
 
+/* ───────── masofadan o'chirish (Admin panel → Qurilmalar → Kompyuterlar) ─────────
+   Har bir dastur o'zining tasodifiy id va maxfiy kaliti bilan har 20 soniyada saytga "men yoqilganman" deydi.
+   Admin "O'chirish" bossa — javobda buyruq keladi (3 daqiqa amal qiladi, keyin eskiradi): Windows'ning
+   shutdown /s /t 60 buyrug'i, ekranda 60 soniya ogohlantirish va "Bekor qilish". Server kompyuteri o'chmaydi. */
+const DEVICE_FILE = path.join(userDir, 'device.json');
+let device = null;
+let power = null; // { id, restart, abort } — boshlangan o'chirish (ekrandagi ogohlantirish bilan)
+const seenCommands = new Set();
+// bajarilgan buyruq diskka yoziladi: qayta yoqilgandan keyin (ack yetib bormagan bo'lsa ham) takrorlanmaydi
+const POWER_FILE = path.join(userDir, 'power.json');
+const lastPowerId = () => readJson(POWER_FILE, {}).id || '';
+function deviceIdentity() {
+  if (device) return device;
+  const d = readJson(DEVICE_FILE, null);
+  if (d && /^[a-f0-9]{32}$/.test(d.id) && /^[a-f0-9]{64}$/.test(d.secret || '')) return (device = { id: d.id, secret: d.secret });
+  device = { id: crypto.randomBytes(16).toString('hex'), secret: crypto.randomBytes(32).toString('hex') };
+  fs.mkdirSync(userDir, { recursive: true });
+  fs.writeFileSync(DEVICE_FILE, JSON.stringify(device));
+  return device;
+}
+async function desktopCall(route, body) {
+  const me = deviceIdentity();
+  const res = await fetch(`${siteUrl()}/api/desktop/${route}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15_000),
+    body: JSON.stringify({ id: me.id, secret: me.secret, ...body }),
+  });
+  return res.json().catch(() => ({}));
+}
+const powerText = (restart, by) => `${by || 'Admin'} bu kompyuterni ${restart ? 'qayta yoqmoqda' : 'o‘chirmoqda'}`;
+function runShutdown(args, cb = () => {}) {
+  execFile(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'shutdown.exe'), args, { windowsHide: true }, cb);
+}
+async function runPowerCommand(c) {
+  if (!c?.id || seenCommands.has(c.id) || lastPowerId() === c.id) return;
+  seenCommands.add(c.id);
+  const ack = (result, error = '') => desktopCall('ack', { commandId: c.id, result, error }).catch(() => {});
+  if (c.action === 'cancel') {
+    if (process.platform === 'win32') runShutdown(['/a']);
+    power?.abort.abort(); // ekrandagi ogohlantirish ham yopiladi
+    power = null;
+    pushLog({ at: Date.now(), text: 'Kompyuterni o‘chirish bekor qilindi (admin).', kind: 'ok' });
+    return ack('cancelled');
+  }
+  if (!['shutdown', 'restart'].includes(c.action)) return ack('error', 'noma’lum buyruq');
+  if (serverOn()) return ack('refused', 'server kompyuteri');
+  if (process.platform !== 'win32') return ack('error', 'faqat Windows');
+  const restart = c.action === 'restart';
+  const delay = Math.min(300, Math.max(15, Number(c.delaySec) || 60));
+  const text = powerText(restart, c.byName);
+  try {
+    fs.writeFileSync(POWER_FILE, JSON.stringify({ id: c.id, action: c.action, at: Date.now() }));
+  } catch {}
+  runShutdown([restart ? '/r' : '/s', '/t', String(delay), '/c', `Oqtosh: ${text}. ${delay} soniyadan keyin.`], async (err) => {
+    if (err) {
+      pushLog({ at: Date.now(), text: `Kompyuterni o‘chirib bo‘lmadi: ${err.message}`, kind: 'warn' });
+      return ack('error', String(err.message).slice(0, 180));
+    }
+    const abort = new AbortController();
+    power = { id: c.id, restart, abort };
+    await ack('started');
+    pushLog({ at: Date.now(), text: `${text} — ${delay} soniya.`, kind: 'warn' });
+    // ekranda ogohlantirish: ishini saqlab olsin yoki bekor qilsin
+    const parent = BrowserWindow.getFocusedWindow() || [...windows.values()].find((w) => !w.isDestroyed() && w.isVisible()) || (home && !home.isDestroyed() ? home : undefined);
+    const r = await dialog.showMessageBox(parent, {
+      type: 'warning', buttons: ['Bekor qilish', restart ? 'Hozir qayta yoqish' : 'Hozir o‘chirish'], defaultId: 0, cancelId: 0, noLink: true,
+      title: 'Oqtosh Kassa', message: `${text}: ${delay} soniyadan keyin.`,
+      detail: 'Ochiq buyurtma yoki to‘lov bo‘lsa — avval tugating yoki “Bekor qilish”ni bosing.',
+      signal: abort.signal,
+    });
+    if (!power || power.id !== c.id) return; // admin allaqachon bekor qildi
+    if (r.response === 0) {
+      runShutdown(['/a']);
+      power = null;
+      pushLog({ at: Date.now(), text: 'Kompyuterni o‘chirish shu yerda bekor qilindi.', kind: 'ok' });
+      ack('cancelled');
+    } else {
+      runShutdown(['/a'], () => runShutdown([restart ? '/r' : '/s', '/t', '0']));
+    }
+  });
+}
+let powerTimer = null;
+function startPowerControl() {
+  const tick = async () => {
+    try {
+      const r = await desktopCall('ping', { name: os.hostname(), version: app.getVersion(), main: isMain(), server: serverOn(), os: `${process.platform === 'win32' ? 'Windows' : process.platform} ${os.release()}` });
+      if (r?.command) await runPowerCommand(r.command);
+    } catch {}
+  };
+  clearInterval(powerTimer);
+  setTimeout(tick, 5000);
+  powerTimer = setInterval(tick, 20_000);
+}
+ipcMain.on('oq:device-id', (e) => {
+  e.returnValue = isOurs(e.senderFrame?.url || '') || fromHome(e) ? deviceIdentity().id : '';
+});
+
 /* ───────── yangilanish (GitHub Releases → latest.yml) ───────── */
 let updater = null;
 let updateState = { status: 'idle', version: '' };
@@ -862,6 +961,7 @@ app.whenReady().then(() => {
   setupServer();
   startAgent();
   setupUpdater();
+  startPowerControl();
   watchOldAdmin();
   if (!hidden) {
     // ofitsiant terminali — darhol ofitsiant oynasi (to'liq ekran)

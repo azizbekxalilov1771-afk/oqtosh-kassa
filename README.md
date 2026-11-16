@@ -117,6 +117,8 @@ Klaviatura: F1 Kassa · F2 Ofitsiant · F3 Admin · F4 Owner · Ctrl+H bosh oyna
 
 **Kameralar — kabina nazorati (1-bosqich):** Bosh oyna → “Kameralar”. “Videoregistratorlarni qidirish” Hikvision va HiLook videoregistratorlarini restoran tarmog‘idan o‘zi topadi (SADP + 8000-port; topilmasa — IP qo‘lda). Videoregistratorning o‘z foydalanuvchisi bilan ulanadi (Hik-Connect paroli emas; “Remote Live View” ruxsati yetarli), kameralar rasmi bilan chiqadi, har birini kabinaga (stolga) yoki “Kassa oldi”ga biriktirasiz. Parollar shu kompyuterda shifrlangan; saytga faqat kamera nomlari va qaysi stolga qaragani boradi. Keyingi bosqich — AI kabinadagi mehmonlarni hisob bilan solishtiradi.
 
+**Kompyuterlarni masofadan o‘chirish:** dastur o‘rnatilgan har bir kompyuter har 20 soniyada saytga “yoqilganman” deydi. Admin panel → Qurilmalar → “Kompyuterlar”: har birini “O‘chirish” / “Qayta yoqish” yoki “Hammasini o‘chirish” (adminni ochgan kompyuterning o‘zidan tashqari). Asosiy kompyuterda: chetdagi menyu (⋮) → “Kompyuterlarni o‘chirish”. Kompyuter ekranida 60 soniya ogohlantirish chiqadi (“Bekor qilish” / “Hozir o‘chirish”), admin ham bekor qila oladi. Buyruq 3 daqiqa amal qiladi — o‘sha paytda o‘chiq kompyuter ertasi kuni yoqilganda o‘chib qolmaydi. Server kompyuteri masofadan o‘chirilmaydi.
+
 ## 5. Tuzilma
 
 | Fayl | Nima |
