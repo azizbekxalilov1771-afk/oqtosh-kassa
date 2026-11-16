@@ -3,7 +3,7 @@ import { AppError } from './env.js';
 import { getDb } from './firebase.js';
 
 // Oqtosh Kassa dasturi (Setup.exe) o'rnatilgan kompyuterlar va ularni masofadan o'chirish / qayta yoqish.
-// Har bir dastur o'zi uchun tasodifiy id + maxfiy kalit yaratadi va har 20 soniyada /api/desktop/ping qiladi.
+// Har bir dastur o'zi uchun tasodifiy id + maxfiy kalit yaratadi va har 10 soniyada /api/desktop/ping qiladi.
 // Admin panel → Qurilmalar → "Kompyuterlar": "O'chirish" bosilsa, buyruq shu hujjatga yoziladi va 3 daqiqa kutadi —
 // kompyuter shu vaqt ichida olmasa, eskiradi (ertasi kuni yoqilganda o'zi o'chib qolmaydi).
 //   desktops/{id}: { secretHash, name, version, main, server, os, ip, lastSeenMs, createdAtMs,
@@ -14,6 +14,7 @@ const SECRET_RE = /^[a-f0-9]{64}$/;
 const ONLINE_MS = 70_000;
 const COMMAND_TTL = 3 * 60_000;
 const ACTIONS = ['shutdown', 'restart', 'cancel'];
+export const DELAYS = [5, 10, 30, 60]; // ekrandagi ogohlantirish, soniya (admin tanlaydi)
 const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const str = (v, n) => String(v ?? '').trim().slice(0, n);
 
@@ -34,7 +35,7 @@ async function own(db, body) {
   return { id, ref, snap, secret };
 }
 
-// Kompyuter → server (har 20 soniyada). Javob: bajarilmagan va eskirmagan buyruq (bo'lsa)
+// Kompyuter → server (har 10 soniyada). Javob: bajarilmagan va eskirmagan buyruq (bo'lsa)
 export async function desktopPing(body, ip = '') {
   const db = await needDb();
   const { ref, snap, secret } = await own(db, body);
@@ -49,7 +50,7 @@ export async function desktopPing(body, ip = '') {
   }
   await ref.update(info);
   const c = snap.data().command;
-  if (c && !c.doneAtMs && c.expiresAtMs > now) return { ok: true, command: { id: c.id, action: c.action, byName: c.byName || '', delaySec: c.delaySec || 60 } };
+  if (c && !c.doneAtMs && c.expiresAtMs > now) return { ok: true, command: { id: c.id, action: c.action, byName: c.byName || '', delaySec: c.delaySec || 10 } };
   return { ok: true };
 }
 
@@ -83,7 +84,8 @@ export async function listDesktops() {
 }
 
 // Admin: ids — bitta yoki bir nechta kompyuter; server kompyuteri va oflayn kompyuterlar o'tkazib yuboriladi
-export async function commandDesktops(ids, action, byName) {
+export async function commandDesktops(ids, action, byName, delaySec = 10) {
+  const delay = DELAYS.includes(Number(delaySec)) ? Number(delaySec) : 10;
   if (!ACTIONS.includes(action)) throw new AppError(400, 'Buyruq noto‘g‘ri.');
   const list = [...new Set((Array.isArray(ids) ? ids : [ids]).map(String))].filter((x) => ID_RE.test(x)).slice(0, 100);
   if (!list.length) throw new AppError(400, 'Kompyuter tanlanmagan.');
@@ -104,7 +106,7 @@ export async function commandDesktops(ids, action, byName) {
       skipped.push({ id, name: d.name, reason: 'oflayn' });
       continue;
     }
-    await ref.update({ command: { id: crypto.randomBytes(8).toString('hex'), action, byName: str(byName, 60), atMs: now, expiresAtMs: now + COMMAND_TTL, delaySec: 60, doneAtMs: 0, result: '', error: '' } });
+    await ref.update({ command: { id: crypto.randomBytes(8).toString('hex'), action, byName: str(byName, 60), atMs: now, expiresAtMs: now + COMMAND_TTL, delaySec: delay, doneAtMs: 0, result: '', error: '' } });
     sent.push({ id, name: d.name });
   }
   return { sent, skipped };

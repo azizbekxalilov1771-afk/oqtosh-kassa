@@ -147,7 +147,20 @@ export async function render(root) {
   // shu sahifa Oqtosh Kassa dasturi ichida ochilgan bo'lsa — o'z kompyuteri "hammasini o'chirish"ga kirmaydi
   const selfId = window.OqDesktop?.deviceId || '';
   const CMD = { shutdown: 'o‘chirish', restart: 'qayta yoqish', cancel: 'bekor qilish' };
-  const RES = { started: 'boshlandi — 60 soniyada', cancelled: 'bekor qilindi', refused: 'rad etdi', error: 'xato' };
+  const RES = { started: 'boshlandi', cancelled: 'bekor qilindi', refused: 'rad etdi', error: 'xato' };
+  // kompyuter ekranidagi ogohlantirish vaqti (shu brauzerda eslab qolinadi)
+  let delay = 10;
+  try {
+    delay = [5, 10, 30, 60].includes(Number(localStorage.getItem('oq-pc-delay'))) ? Number(localStorage.getItem('oq-pc-delay')) : 10;
+  } catch {}
+  const delaySel = el('select', { className: 'pc-delay', ariaLabel: 'Ogohlantirish vaqti' },
+    ...[[5, '5 soniya'], [10, '10 soniya'], [30, '30 soniya'], [60, '1 daqiqa']].map(([v, t]) => el('option', { value: String(v), textContent: t, selected: v === delay })));
+  delaySel.addEventListener('change', () => {
+    delay = Number(delaySel.value);
+    try {
+      localStorage.setItem('oq-pc-delay', String(delay));
+    } catch {}
+  });
   async function pcReload() {
     try {
       pcs = (await api('/desktops')).items || [];
@@ -159,9 +172,9 @@ export async function render(root) {
   }
   const pcSend = async (ids, action, label) => {
     try {
-      const r = await api('/desktops/command', { method: 'POST', body: { ids, action } });
+      const r = await api('/desktops/command', { method: 'POST', body: { ids, action, delaySec: delay } });
       const skip = r.skipped.length ? ` O‘tkazib yuborildi: ${r.skipped.map((x) => `${x.name} (${x.reason})`).join(', ')}.` : '';
-      toast(r.sent.length ? `${label}: ${r.sent.map((x) => x.name).join(', ')} — buyruq yuborildi, 20 soniya ichida bajariladi.${skip}` : `Hech biriga yuborilmadi.${skip}`, r.sent.length ? '' : 'error');
+      toast(r.sent.length ? `${label}: ${r.sent.map((x) => x.name).join(', ')} — buyruq yuborildi: 10 soniya ichida yetib boradi, ekranda ${delay} soniya ogohlantirishdan keyin bajariladi.${skip}` : `Hech biriga yuborilmadi.${skip}`, r.sent.length ? '' : 'error');
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -171,8 +184,9 @@ export async function render(root) {
     const targets = pcs.filter((p) => p.online && !p.server && p.id !== selfId);
     pcHead.replaceChildren(
       el('p', { className: 'muted small grow', textContent: targets.length ? `${targets.length} ta kompyuter yoqilgan.` : 'Hozir boshqa yoqilgan kompyuter yo‘q.' }),
+      el('label', { className: 'pc-delay-label' }, el('span', { className: 'muted small', textContent: 'Ogohlantirish:' }), delaySel),
       targets.length ? btn(`⏻ Hammasini o‘chirish (${targets.length})`, (e) => {
-        if (!confirm(`${targets.map((p) => p.name).join(', ')} — hammasi o‘chirilsinmi?\n\nHar birining ekranida 60 soniya ogohlantirish chiqadi, xodim “Bekor qilish”ni bosishi mumkin.${selfId ? '\nShu kompyuter o‘chirilmaydi.' : ''}`)) return;
+        if (!confirm(`${targets.map((p) => p.name).join(', ')} — hammasi o‘chirilsinmi?\n\nHar birining ekranida ${delay} soniya ogohlantirish chiqadi, xodim “Bekor qilish”ni bosishi mumkin.${selfId ? '\nShu kompyuter o‘chirilmaydi.' : ''}`)) return;
         busy(e.currentTarget, '…', () => pcSend(targets.map((p) => p.id), 'shutdown', 'O‘chirish'));
       }, 'btn-ghost btn-small danger') : '');
     pcList.replaceChildren(...(pcs.length ? pcs.map((p) => {
@@ -184,7 +198,7 @@ export async function render(root) {
         const started = c && (c.pending || c.result === 'started') && c.action !== 'cancel' && Date.now() - new Date(c.at) < 5 * 60_000;
         if (started) actions.push(btn('Bekor qilish', (e) => busy(e.currentTarget, '…', () => pcSend([p.id], 'cancel', 'Bekor qilish')), 'btn-small'));
         actions.push(btn('⏻ O‘chirish', (e) => {
-          if (!confirm(`${p.name} o‘chirilsinmi?${isSelf ? '\n\nDiqqat: bu — siz hozir ishlayotgan kompyuter.' : ''}\n\nEkranda 60 soniya ogohlantirish chiqadi.`)) return;
+          if (!confirm(`${p.name} o‘chirilsinmi?${isSelf ? '\n\nDiqqat: bu — siz hozir ishlayotgan kompyuter.' : ''}\n\nEkranda ${delay} soniya ogohlantirish chiqadi.`)) return;
           busy(e.currentTarget, '…', () => pcSend([p.id], 'shutdown', 'O‘chirish'));
         }, 'btn-ghost btn-small'));
         actions.push(btn('↻ Qayta yoqish', (e) => {
@@ -227,7 +241,7 @@ export async function render(root) {
   root.append(
     pageHead('Qurilmalar', 'Xodimlar kirgan telefon va kompyuterlar. Printer ulangan kassa kompyuterini “chek printeri” qilib tanlang — ofitsiant va kassir telefondan bosgan cheklar o‘sha printerdan chiqadi.',
       btn('Yangilash', (e) => busy(e.currentTarget, '…', reload), 'btn-ghost')),
-    card('💻 Kompyuterlar (Oqtosh Kassa dasturi)', 'Dastur o‘rnatilgan kompyuterlarni shu yerdan o‘chirish yoki qayta yoqish mumkin. Kompyuter ekranida 60 soniya ogohlantirish chiqadi.', pcHead, pcList),
+    card('💻 Kompyuterlar (Oqtosh Kassa dasturi)', 'Dastur o‘rnatilgan kompyuterlarni shu yerdan o‘chirish yoki qayta yoqish mumkin. Kompyuter ekranida tanlangan vaqt (5 soniyadan 1 daqiqagacha) ogohlantirish chiqadi — xodim bekor qila oladi.', pcHead, pcList),
     card('Chek printeri', '', statusBox, el('div', { className: 'grid-2' }, paper.node, footer.node), el('div', { className: 'row' }, save)),
     card('Qurilmalar', '', list),
     card('Kassa kompyuterini sozlash (bir marta)', 'Chek oynasiz, darhol chiqishi uchun.',

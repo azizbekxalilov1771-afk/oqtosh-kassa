@@ -762,9 +762,9 @@ ipcMain.handle('oq:server:open', serverCall((what) => {
 }));
 
 /* ───────── masofadan o'chirish (Admin panel → Qurilmalar → Kompyuterlar) ─────────
-   Har bir dastur o'zining tasodifiy id va maxfiy kaliti bilan har 20 soniyada saytga "men yoqilganman" deydi.
+   Har bir dastur o'zining tasodifiy id va maxfiy kaliti bilan har 10 soniyada saytga "men yoqilganman" deydi.
    Admin "O'chirish" bossa — javobda buyruq keladi (3 daqiqa amal qiladi, keyin eskiradi): Windows'ning
-   shutdown /s /t 60 buyrug'i, ekranda 60 soniya ogohlantirish va "Bekor qilish". Server kompyuteri o'chmaydi. */
+   shutdown /s /t <5–60> buyrug'i (vaqtni admin tanlaydi), ekranda ogohlantirish va "Bekor qilish". Server kompyuteri o'chmaydi. */
 const DEVICE_FILE = path.join(userDir, 'device.json');
 let device = null;
 let power = null; // { id, restart, abort } — boshlangan o'chirish (ekrandagi ogohlantirish bilan)
@@ -808,7 +808,7 @@ async function runPowerCommand(c) {
   if (serverOn()) return ack('refused', 'server kompyuteri');
   if (process.platform !== 'win32') return ack('error', 'faqat Windows');
   const restart = c.action === 'restart';
-  const delay = Math.min(300, Math.max(15, Number(c.delaySec) || 60));
+  const delay = Math.min(300, Math.max(5, Number(c.delaySec) || 10));
   const text = powerText(restart, c.byName);
   try {
     fs.writeFileSync(POWER_FILE, JSON.stringify({ id: c.id, action: c.action, at: Date.now() }));
@@ -851,7 +851,7 @@ function startPowerControl() {
   };
   clearInterval(powerTimer);
   setTimeout(tick, 5000);
-  powerTimer = setInterval(tick, 20_000);
+  powerTimer = setInterval(tick, 10_000);
 }
 ipcMain.on('oq:device-id', (e) => {
   e.returnValue = isOurs(e.senderFrame?.url || '') || fromHome(e) ? deviceIdentity().id : '';

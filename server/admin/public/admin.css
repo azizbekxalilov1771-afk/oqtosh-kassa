@@ -783,3 +783,5 @@ input:not([type=checkbox]):not([type=file]), textarea, select { border-radius: 1
 .pc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
 .pc-head .grow { flex: 1 1 200px; margin: 0; }
 .pc-list .item-actions { flex-wrap: wrap; }
+.pc-delay-label { display: inline-flex; align-items: center; gap: 6px; }
+.pc-delay-label select { min-height: 36px; padding: 4px 8px; }

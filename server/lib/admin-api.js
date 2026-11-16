@@ -488,7 +488,7 @@ function createAdminApiInner({ verifier: base = firebaseVerify } = {}) {
       // ── Oqtosh Kassa dasturi o'rnatilgan kompyuterlar: o'chirish / qayta yoqish ──
       if (path === '/desktops' && method === 'GET') return json({ items: await listDesktops() });
       if (path === '/desktops/command' && method === 'POST') {
-        const r = await commandDesktops(body?.ids, String(body?.action || ''), admin.email);
+        const r = await commandDesktops(body?.ids, String(body?.action || ''), admin.email, body?.delaySec);
         return done(`desktop.${body?.action}`, r.sent.map((x) => x.name).join(', ') || '—', r);
       }
       if (section === 'desktops' && itemId && method === 'DELETE') return done('desktop.delete', itemId, await deleteDesktop(itemId));
