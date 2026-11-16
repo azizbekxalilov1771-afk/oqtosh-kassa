@@ -30,6 +30,51 @@
       <button type="button" class="tile" data-open="owner" data-main><span class="ico" aria-hidden="true">📊</span><b>Owner</b><small>savdo, smenalar, ombor · F4</small></button>
     </section>
 
+    <section class="card server" id="srv" aria-labelledby="srv-title">
+      <div class="card-head">
+        <h2 id="srv-title">Server kompyuteri</h2>
+        <span class="pill" id="srv-pill">o‘chiq</span>
+      </div>
+      <div id="srv-off">
+        <p>Sayt, admin panel, kassa va barcha ma’lumotlar (buyurtmalar, xodimlar, hisobotlar) <b>shu kompyuterdan</b> ishlaydi — Firebase va Netlify limitlarisiz, oyiga to‘lovsiz. Kompyuter o‘chiq paytda sayt “hozir yopiq” deb ko‘rsatadi.</p>
+        <ol>
+          <li>Kalitlar: <span id="srv-keys">tekshirilmoqda…</span>
+            <span class="row wrap tight"><button type="button" class="btn ghost small" id="srv-keys-find">Kompyuterdan topish</button><button type="button" class="btn ghost small" id="srv-keys-pick">Faylni tanlash…</button></span>
+          </li>
+          <li><button type="button" class="btn" id="srv-on" disabled>Bu kompyuterni server qilish</button></li>
+        </ol>
+      </div>
+      <div id="srv-onbox" hidden>
+        <dl class="facts" id="srv-facts"></dl>
+        <div class="srv-step" id="srv-mig" hidden>
+          <p id="srv-mig-text"></p>
+          <div class="row wrap tight">
+            <button type="button" class="btn small" id="srv-migrate">Firebase’dan ko‘chirish</button>
+            <button type="button" class="btn-link" id="srv-fresh">Ko‘chirishsiz, bo‘sh boshlash</button>
+          </div>
+        </div>
+        <div class="srv-step" id="srv-cf" hidden>
+          <p><b>Internetga chiqarish (Cloudflare, bepul).</b> Avval <b>dash.cloudflare.com</b> da domenni qo‘shing va domen kabinetida NS yozuvlarini Cloudflare’nikiga almashtiring. Keyin shu tugma: brauzer ochiladi → domenni tanlab <b>Authorize</b> bosing — qolganini dastur o‘zi qiladi.</p>
+          <form id="srv-cf-form" class="row">
+            <input id="srv-domain" placeholder="oqtoshrestoran.uz" autocomplete="off" spellcheck="false" aria-label="Domen">
+            <button type="submit" class="btn">Cloudflare’ga ulash</button>
+          </form>
+          <p class="muted" id="srv-cf-login" hidden>Brauzer ochilmasa: <button type="button" class="btn-link" id="srv-cf-link">Cloudflare kirish sahifasini ochish</button></p>
+        </div>
+        <div class="row wrap">
+          <button type="button" class="btn ghost small" id="srv-backup">💾 Zaxira olish</button>
+          <button type="button" class="btn ghost small" id="srv-backup-tg">✈ Telegram’ga zaxira</button>
+          <button type="button" class="btn ghost small" id="srv-restore">↺ Zaxiradan tiklash</button>
+          <button type="button" class="btn ghost small" id="srv-open-bk">Zaxira papkasi</button>
+          <button type="button" class="btn ghost small" id="srv-open-log">Server jurnali</button>
+          <button type="button" class="btn ghost small" id="srv-keys-again">Kalitlarni yangilash</button>
+          <button type="button" class="btn-link danger" id="srv-offbtn">Serverni o‘chirish</button>
+        </div>
+      </div>
+      <p class="err" id="srv-err" role="alert" hidden></p>
+      <p class="ok-text" id="srv-ok" role="status" hidden></p>
+    </section>
+
     <div class="grid">
       <section class="card" aria-labelledby="pr-title">
         <div class="card-head">
@@ -78,7 +123,7 @@
         <label>Dastur ochilganda
           <select name="startWith"><option value="home">Shu bosh oyna</option><option value="kassa">Kassa</option><option value="ofitsiant">Ofitsiant</option></select>
         </label>
-        <label class="check"><input type="checkbox" name="autostart"> Kompyuter yoqilganda o‘zi ishga tushsin (printerlar uchun kerak)</label>
+        <label class="check"><input type="checkbox" name="autostart"> Kompyuter yoqilganda dastur o‘zi ochilsin (printerlar ham shu bilan ishlaydi — alohida cmd oynasi kerak emas)</label>
         <label class="check"><input type="checkbox" name="fullscreen"> Oynalar to‘liq ekranda ochilsin (F11 — chiqish)</label>
         <div class="row"><button type="button" class="btn ghost small" id="check-upd">Yangilanishni tekshirish</button></div>
         <div class="row"><button type="submit" class="btn">Saqlash</button><span class="muted" id="saved" hidden>Saqlandi</span></div>

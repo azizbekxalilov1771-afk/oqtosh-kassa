@@ -1,0 +1,12 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self)
+
+# Telegram mini-ilova: Telegram Web (brauzer) buyurtma sahifasini iframe ichida ochadi
+# (frame-ancestors bo'lsa brauzerlar yuqoridagi X-Frame-Options'ni hisobga olmaydi)
+/buyurtma.html
+  Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org https://*.telegram.org
+/buyurtma
+  Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org https://*.telegram.org

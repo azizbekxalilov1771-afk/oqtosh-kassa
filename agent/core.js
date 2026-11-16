@@ -211,15 +211,18 @@ class Agent extends EventEmitter {
 
   apply(r) {
     if (!r) return;
-    if (typeof r.ring === 'string' && r.ring !== this.ringUrl) {
-      this.ringUrl = r.ring;
+    // server kompyuterida qo'ng'iroq manzili nisbiy (/live/...) — o'z sayti manziliga qo'shiladi
+    const ring = typeof r.ring === 'string' && r.ring && !/^https?:\/\//.test(r.ring) ? new URL(r.ring, `${this.site}/`).href : r.ring;
+    if (typeof ring === 'string' && ring !== this.ringUrl) {
+      this.ringUrl = ring;
       this.listenRing();
     }
     if (r.poll) this.poll = Math.max(5, Number(r.poll));
     if (r.idlePoll) this.idlePoll = Math.max(5, Number(r.idlePoll));
     if (Array.isArray(r.probe)) this.probe = r.probe;
     if (r.scan) this.needScan = true;
-    if (typeof r.site === 'string' && /^https:\/\//.test(r.site) && r.site.replace(/\/+$/, '') !== this.site) {
+    const local = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(this.site);
+    if (!local && typeof r.site === 'string' && /^https:\/\//.test(r.site) && r.site.replace(/\/+$/, '') !== this.site) {
       this.site = r.site.replace(/\/+$/, '');
       this.emit('site', this.site);
       this.log(`Sayt manzili yangilandi: ${this.site}`);
@@ -345,13 +348,19 @@ class Agent extends EventEmitter {
     })();
   }
 
+  // Chek chop etilayotganda yangi chek haqida xabar kelsa — yo'qolmaydi: keyingi kutish darhol tugaydi
   kick() {
     const w = this.wake;
     this.wake = null;
-    w?.();
+    if (w) w();
+    else this.kicked = true;
   }
 
   wait(sec) {
+    if (this.kicked) {
+      this.kicked = false;
+      return Promise.resolve();
+    }
     return new Promise((resolve) => {
       const t = setTimeout(() => {
         this.wake = null;

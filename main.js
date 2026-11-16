@@ -6,13 +6,15 @@
 //   asosiy kompyuter — admin bergan kod bilan ulangan (printer dasturi ishlaydi): Kassa, Admin, Owner, printerlar
 //   ofitsiant terminali — ulanmagan kompyuter: faqat Ofitsiant oynasi (omborchi ham shu oynadan PIN bilan kiradi)
 // Dasturning o'zi (oyna, printer moduli) GitHub'dagi yangi versiyani o'zi topadi va yangilanadi (electron-updater).
+// Server kompyuteri rejimi (server-host.js): sayt, admin panel va barcha ma'lumotlar shu kompyuterdan ishlaydi.
 
-const { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, session, safeStorage, Notification, dialog } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, session, safeStorage, Notification, dialog, powerSaveBlocker } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
 const { Agent, pair, VERSION: AGENT_VERSION } = require('./agent/core');
 const { makeRawPrint } = require('./agent/raw-win');
+const { ServerHost } = require('./server-host');
 const defaults = require('./config.json');
 
 if (!app.requestSingleInstanceLock()) {
@@ -32,12 +34,13 @@ const hidden = process.argv.includes('--hidden');
 /* ───────── sozlamalar ───────── */
 const readJson = (file, fb) => {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')); // PowerShell 5.1 UTF-8 BOM bilan yozadi
   } catch {
     return fb;
   }
 };
 let settings = { site: defaults.site, admin: defaults.admin, autostart: true, startWith: 'home', fullscreen: true, htmlPrinter: '', ...readJson(SETTINGS_FILE, {}) };
+settings.server = { enabled: false, domain: defaults.domain || 'oqtoshrestoran.uz', ...(settings.server || {}) };
 function saveSettings() {
   fs.mkdirSync(userDir, { recursive: true });
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
@@ -50,6 +53,8 @@ if ((defaults.oldAdmin || []).map(cleanUrl).includes(cleanUrl(settings.admin))) 
     saveSettings();
   } catch {}
 }
+// Netlify'dagi eski admin: yangi manzil (server kompyuteri) javob bera boshlaganda o'ziga o'tadi
+const probeAdmin = new Set((defaults.probeAdmin || []).map(cleanUrl));
 const okUrl = (u) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(u) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(u);
 
 function loadKey() {
@@ -66,6 +71,13 @@ function saveKey(k) {
   fs.writeFileSync(KEY_FILE, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(k) : Buffer.from(k, 'utf8'));
 }
 
+/* ───────── server kompyuteri ───────── */
+const host = new ServerHost({ userDir, getSettings: () => settings, save: saveSettings });
+const serverOn = () => host.enabled;
+// Server rejimida shu kompyuterdagi oynalar va printer dasturi serverga to'g'ridan-to'g'ri ulanadi (internetsiz ham ishlaydi)
+const siteUrl = () => (serverOn() ? host.urls().localSite : settings.site);
+const adminUrl = () => (serverOn() ? host.urls().localAdmin : settings.admin);
+
 /* ───────── xavfsizlik: faqat o'z saytlarimiz ichida ───────── */
 const originOf = (u) => {
   try {
@@ -77,7 +89,7 @@ const originOf = (u) => {
 // Saytimiz o'zi yo'naltirgan manzillar (masalan oqtosh-sayt.netlify.app → oqtoshrestoran.uz) ham "o'zimizniki":
 // aks holda yo'naltirilgan sahifadagi havolalar tashqi brauzerda ochilib ketadi.
 const aliases = new Set([defaults.site, defaults.admin, ...(defaults.aliases || [])].map(originOf).filter(Boolean));
-const ours = () => [originOf(settings.site), originOf(settings.admin), ...aliases].filter(Boolean);
+const ours = () => [originOf(settings.site), originOf(settings.admin), originOf(host.urls().site), originOf(host.urls().admin), ...(serverOn() ? [originOf(siteUrl()), originOf(adminUrl())] : []), ...aliases].filter(Boolean);
 const isOurs = (u) => ours().includes(originOf(u));
 const AUTH_HOST = /(^|\.)(accounts\.google\.com|firebaseapp\.com|googleapis\.com|google\.com|gstatic\.com)$/i;
 const EXTERNAL_OK = /^(https?|tg|tel|mailto):/i;
@@ -115,15 +127,15 @@ app.on('web-contents-created', (_e, wc) => {
 /* ───────── oynalar ───────── */
 // Xodim sahifalari admin saytida (/xodim/...): mijozlar sayti (oqtoshrestoran.uz) faqat mijozlar uchun
 const SECTIONS = {
-  kassa: { title: 'Kassa', url: () => `${settings.admin}/xodim/kassa.html`, size: [1366, 860], main: true },
-  ofitsiant: { title: 'Ofitsiant', url: () => `${settings.admin}/xodim/ofitsiant.html`, size: [1100, 820] },
-  ombor: { title: 'Ombor', url: () => `${settings.admin}/xodim/ombor.html`, size: [1100, 820] },
-  kuryer: { title: 'Kuryer', url: () => `${settings.admin}/xodim/kuryer.html`, size: [900, 820], main: true },
-  admin: { title: 'Admin panel', url: () => `${settings.admin}/`, size: [1366, 880], main: true },
-  owner: { title: 'Owner — hisobotlar', url: () => `${settings.admin}/owner/`, size: [1366, 880], main: true },
+  kassa: { title: 'Kassa', url: () => `${adminUrl()}/xodim/kassa.html`, size: [1366, 860], main: true },
+  ofitsiant: { title: 'Ofitsiant', url: () => `${adminUrl()}/xodim/ofitsiant.html`, size: [1100, 820] },
+  ombor: { title: 'Ombor', url: () => `${adminUrl()}/xodim/ombor.html`, size: [1100, 820] },
+  kuryer: { title: 'Kuryer', url: () => `${adminUrl()}/xodim/kuryer.html`, size: [900, 820], main: true },
+  admin: { title: 'Admin panel', url: () => `${adminUrl()}/`, size: [1366, 880], main: true },
+  owner: { title: 'Owner — hisobotlar', url: () => `${adminUrl()}/owner/`, size: [1366, 880], main: true },
 };
 // Asosiy kompyuter — printer dasturi ulangan (admin bergan kod bilan). Qolganlari — ofitsiant terminali.
-const isMain = () => Boolean(loadKey());
+const isMain = () => Boolean(loadKey()) || serverOn();
 const allowed = (name) => Boolean(SECTIONS[name]) && (!SECTIONS[name].main || isMain());
 const windows = new Map();
 let home = null;
@@ -133,6 +145,13 @@ let trayHintShown = false;
 
 function webPrefs() {
   return { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false };
+}
+
+// Kassa dasturi kabi: sensorli ekranda ikki barmoq bilan kattalashib ketmaydi (menyudagi Ctrl +/− ishlaydi),
+// fayl oynaga tashlansa sahifa o'rniga ochilib qolmaydi
+function nativeFeel(w) {
+  w.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {});
+  w.webContents.on('did-finish-load', () => w.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {}));
 }
 
 function attachOffline(w) {
@@ -157,6 +176,7 @@ function openSection(name, hash = '') {
   w = new BrowserWindow({ width: s.size[0], height: s.size[1], minWidth: 360, minHeight: 500, title: `Oqtosh — ${s.title}`, icon: ICON, backgroundColor: '#0b0b0d', show: false, autoHideMenuBar: true, webPreferences: webPrefs() });
   windows.set(name, w);
   attachOffline(w);
+  nativeFeel(w);
   w.once('ready-to-show', () => {
     // to'liq ekran (F11 — chiqish/qaytish); o'chirilgan bo'lsa — butun ekranga yoyiladi
     if (settings.fullscreen) w.setFullScreen(true);
@@ -182,16 +202,17 @@ function showHome() {
     home.show();
   });
   home.on('close', (e) => {
-    // printer dasturi ishlab tursa — oyna yopilmaydi, tray'ga yashirinadi
-    if (!quitting && agent) {
+    // printer dasturi yoki server ishlab tursa — oyna yopilmaydi, tray'ga yashirinadi
+    if (!quitting && (agent || serverOn())) {
       e.preventDefault();
       home.hide();
       if (!trayHintShown && Notification.isSupported()) {
         trayHintShown = true;
-        new Notification({ title: 'Oqtosh Kassa orqada ishlayapti', body: 'Printerlar cheklarni chiqarishda davom etadi. Ochish — soat yonidagi belgini bosing.', icon: ICON }).show();
+        new Notification({ title: 'Oqtosh Kassa orqada ishlayapti', body: serverOn() ? 'Sayt, admin panel va printerlar shu kompyuterdan ishlashda davom etadi. Ochish — soat yonidagi belgini bosing.' : 'Printerlar cheklarni chiqarishda davom etadi. Ochish — soat yonidagi belgini bosing.', icon: ICON }).show();
       }
     }
   });
+  nativeFeel(home);
   home.on('closed', () => (home = null));
   home.loadFile(path.join(__dirname, 'app', 'home.html'));
   return home;
@@ -200,6 +221,16 @@ function showHome() {
 function quit() {
   quitting = true;
   agent?.stop();
+  app.quit();
+}
+// Server ishlayotgan bo'lsa — dastur yopilishidan oldin ma'lumotlar diskka yoziladi va server toza to'xtatiladi
+let serverStopped = false;
+async function stopServerThenQuit() {
+  if (serverStopped) return;
+  serverStopped = true;
+  try {
+    await host.stopAll();
+  } catch {}
   app.quit();
 }
 
@@ -273,9 +304,32 @@ function applyMode() {
   toHome('oq:mode', { main: isMain() });
 }
 
+// Kompyuter yoqilganda dastur o'zi ochiladi: asosiy kompyuterda — bosh oyna (yoki tanlangan bo'lim), qolganlarida —
+// ofitsiant oynasi, to'liq ekranda. Printer qismi shu bilan birga ishga tushadi (alohida cmd oynasi kerak emas).
 function applyAutostart() {
   if (!app.isPackaged) return;
-  app.setLoginItemSettings({ openAtLogin: Boolean(settings.autostart), path: process.execPath, args: ['--hidden'] });
+  app.setLoginItemSettings({ openAtLogin: Boolean(settings.autostart), path: process.execPath, args: [] });
+}
+
+// Eski "Oqtosh printer" (cmd oynasidagi dastur) endi shu dasturning ichida. Kompyuterda topilsa: u to'xtatiladi,
+// Windows bilan ishga tushishi o'chiriladi va bu kompyuter hali ulanmagan bo'lsa — uning kaliti olinadi
+// (kompyuter o'zi asosiy bo'ladi, qayta kod kiritish shart emas).
+function adoptOldCmdPrinter() {
+  if (process.platform !== 'win32') return;
+  const dir = path.join(app.getPath('appData'), 'OqtoshPrinter');
+  if (!fs.existsSync(dir)) return;
+  try {
+    fs.writeFileSync(path.join(dir, 'stop.flag'), '1'); // ishlab turgan cmd oynasi o'zi yopiladi
+  } catch {}
+  try {
+    fs.rmSync(path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'Oqtosh printer.lnk'), { force: true });
+  } catch {}
+  if (loadKey()) return;
+  const cfg = readJson(path.join(dir, 'config.json'), null);
+  const key = String(cfg?.key || '');
+  if (!/^oqa_[A-Za-z0-9_-]{20,64}$/.test(key)) return;
+  saveKey(key);
+  pushLog({ at: Date.now(), text: 'Eski printer dasturi (cmd) topildi — uning ulanishi shu dasturga o‘tkazildi va cmd oynasi yopildi.', kind: 'ok' });
 }
 
 /* ───────── printerlar ───────── */
@@ -310,7 +364,7 @@ function startAgent() {
   tray?.setToolTip(key ? 'Oqtosh Kassa — printer dasturi' : 'Oqtosh Kassa (printer ulanmagan)');
   if (!key) return;
   agent = new Agent({
-    site: settings.site,
+    site: siteUrl(),
     key,
     listWinPrinters: async () => (await windowsPrinters()).map((p) => ({ name: p.name, driver: p.options?.['printer-make-and-model'] || p.description || '' })),
     rawPrint,
@@ -321,6 +375,7 @@ function startAgent() {
   });
   agent.on('log', pushLog);
   agent.on('site', (site) => {
+    if (serverOn()) return; // server kompyuterida printer dasturi doim shu kompyuterdagi serverga ulanadi
     aliases.add(originOf(settings.site)); // ochiq oynalar eski manzilda ishlashda davom etsin
     settings.site = site;
     saveSettings();
@@ -375,7 +430,7 @@ ipcMain.handle('oq:home:state', async (e) => {
   try {
     printers = (await windowsPrinters()).map((p) => ({ name: p.name, isDefault: Boolean(p.isDefault) }));
   } catch {}
-  return { settings, version: app.getVersion(), agentVersion: AGENT_VERSION, status: agentStatus, logs, printers, platform: process.platform, main: isMain(), update: updateState };
+  return { settings, version: app.getVersion(), agentVersion: AGENT_VERSION, status: agentStatus, logs, printers, platform: process.platform, main: isMain(), update: updateState, server: host.publicState() };
 });
 ipcMain.handle('oq:settings:set', async (e, patch) => {
   guard(e);
@@ -402,8 +457,8 @@ ipcMain.handle('oq:settings:set', async (e, patch) => {
 });
 ipcMain.handle('oq:pair', async (e, code) => {
   guard(e);
-  const r = await pair(settings.site, String(code || ''));
-  if (r.site && okUrl(r.site) && r.site !== settings.site) {
+  const r = await pair(siteUrl(), String(code || ''));
+  if (!serverOn() && r.site && okUrl(r.site) && r.site !== settings.site) {
     aliases.add(originOf(settings.site));
     settings.site = r.site;
     saveSettings();
@@ -427,6 +482,31 @@ ipcMain.handle('oq:update:install', (e) => {
   installUpdate();
   return true;
 });
+// Sensorli POS monoblok (klaviaturasiz): bo'lim oynalaridagi chetdagi menyu uchun
+const MENU_SECTIONS = ['kassa', 'ofitsiant', 'ombor', 'admin', 'owner'];
+ipcMain.handle('oq:menu:state', (e) => {
+  if (!fromHome(e) && !isOurs(e.senderFrame?.url || '')) return null;
+  const w = BrowserWindow.fromWebContents(e.sender);
+  return {
+    version: app.getVersion(), main: isMain(), fullscreen: Boolean(w?.isFullScreen()), update: updateState,
+    sections: MENU_SECTIONS.filter(allowed).map((id) => ({ id, title: SECTIONS[id].title })),
+  };
+});
+ipcMain.handle('oq:win', (e, action) => {
+  if (!fromHome(e) && !isOurs(e.senderFrame?.url || '')) return false;
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (action === 'fullscreen' && w) {
+    const on = !w.isFullScreen();
+    w.setFullScreen(on);
+    if (!on) w.maximize();
+    return on;
+  }
+  if (action === 'update') {
+    installUpdate();
+    return updateState.status === 'ready';
+  }
+  return false;
+});
 ipcMain.handle('oq:update:check', (e) => {
   guard(e);
   checkUpdates(true);
@@ -449,6 +529,139 @@ ipcMain.handle('oq:test-html', async (e) => {
 <h2>Oqtosh Kassa</h2><p>Sinov cheki</p><p>${new Date().toLocaleString('ru-RU')}</p><p>Printer: ${(settings.htmlPrinter || 'asosiy (Windows)').replace(/[<>&]/g, '')}</p>`);
 });
 
+/* ───────── server kompyuteri: boshqaruv ───────── */
+function setupServer() {
+  let last = 0;
+  let timer = null;
+  // holat tez-tez o'zgaradi (ko'chirish jarayoni) — bosh oynaga ko'pi bilan sekundiga bir marta
+  host.on('state', () => {
+    const send = () => {
+      last = Date.now();
+      timer = null;
+      toHome('oq:server', host.publicState());
+    };
+    if (Date.now() - last > 1000) send();
+    else if (!timer) timer = setTimeout(send, 1000);
+  });
+  host.on('log', (l) => toHome('oq:server-log', l));
+  // server ishlab turganda kompyuter uyqu rejimiga o'tmaydi (ekran o'chishi mumkin) — aks holda sayt to'xtaydi
+  let blocker = null;
+  const keepAwake = () => {
+    if (serverOn() && blocker === null) blocker = powerSaveBlocker?.start('prevent-app-suspension') ?? null;
+    if (!serverOn() && blocker !== null) {
+      powerSaveBlocker.stop(blocker);
+      blocker = null;
+    }
+  };
+  keepAwake();
+  host.on('mode', () => {
+    keepAwake();
+    startAgent(); // printer dasturi serverga (yoki saytga) qayta ulanadi
+    applyMode();
+    for (const [name, w] of windows) if (!w.isDestroyed() && SECTIONS[name]) w.loadURL(SECTIONS[name].url());
+  });
+  host.on('started', () => {
+    // server endi tayyor — "sayt ochilmadi" sahifasidagi oynalar qayta yuklanadi
+    for (const [name, w] of windows) if (!w.isDestroyed() && w.webContents.getURL().startsWith('file:') && SECTIONS[name]) w.loadURL(SECTIONS[name].url());
+  });
+  if (serverOn()) {
+    host.start();
+    host.startTunnel();
+  }
+}
+
+// Boshqa kompyuterlar (ofitsiant terminallari): Netlify'dagi eski admin manzili saqlangan bo'lsa,
+// yangi manzil (server kompyuteri) ishlay boshlaganini tekshirib, o'zi o'tadi
+function watchOldAdmin() {
+  const check = async () => {
+    if (serverOn() || !probeAdmin.has(cleanUrl(settings.admin))) return;
+    const next = host.urls().admin;
+    try {
+      const r = await fetch(`${next}/api/pc/ping`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok || !(await r.json()).pc) return;
+    } catch {
+      return;
+    }
+    const old = settings.admin;
+    aliases.add(originOf(old));
+    settings.admin = next;
+    saveSettings();
+    pushLog({ at: Date.now(), text: `Admin manzili yangilandi: ${next} (server kompyuteri)`, kind: 'ok' });
+    for (const [name, w] of windows) if (!w.isDestroyed() && w.webContents.getURL().startsWith(originOf(old)) && SECTIONS[name]) w.loadURL(SECTIONS[name].url());
+  };
+  check();
+  setInterval(check, 5 * 60_000);
+}
+
+// Fayl tanlash oynasi: to'liq ekrandagi oyna ustida Windows dialogni orqada qoldirishi mumkin —
+// shuning uchun dialog paytida to'liq ekrandan chiqiladi, keyin qaytariladi
+async function pickFile(opts) {
+  const w = home && !home.isDestroyed() ? home : null;
+  const wasFull = Boolean(w?.isFullScreen());
+  if (wasFull) {
+    w.setFullScreen(false);
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  w?.focus();
+  try {
+    return await (w ? dialog.showOpenDialog(w, opts) : dialog.showOpenDialog(opts));
+  } finally {
+    if (wasFull && !w.isDestroyed()) w.setFullScreen(true);
+  }
+}
+
+const serverCall = (fn) => async (e, ...args) => {
+  guard(e);
+  return fn(...args);
+};
+ipcMain.handle('oq:server:state', serverCall(() => host.publicState()));
+ipcMain.handle('oq:server:enable', serverCall((on) => host.enable(Boolean(on))));
+ipcMain.handle('oq:server:find-keys', serverCall(() => host.findEnvFiles()));
+ipcMain.handle('oq:server:import-keys', serverCall(async (files) => {
+  let list = Array.isArray(files) ? files.map(String).filter((f) => fs.existsSync(f)) : [];
+  if (!list.length) {
+    const r = await pickFile({
+      title: 'Kalitlar fayli (.env yoki netlify-kalitlar.env)', defaultPath: app.getPath('downloads'), properties: ['openFile', 'multiSelections', 'showHiddenFiles'],
+      filters: [{ name: 'Barcha fayllar', extensions: ['*'] }],
+    });
+    if (r.canceled) return host.keysInfo();
+    list = r.filePaths;
+  }
+  const info = host.importEnvFiles(list);
+  if (serverOn()) {
+    await host.stop();
+    host.start(); // yangi kalitlar bilan
+  }
+  return info;
+}));
+ipcMain.handle('oq:server:tunnel', serverCall((domain) => host.setupTunnel(domain)));
+// buyruqdan keyin holat darhol yangilanadi (15 soniyalik navbatni kutmasdan)
+const andRefresh = (p) => p.finally(() => host.refresh());
+ipcMain.handle('oq:server:migrate', serverCall(() => andRefresh(host.request('migrate', {}, 30 * 60_000))));
+ipcMain.handle('oq:server:fresh', serverCall(() => andRefresh(host.request('fresh'))));
+ipcMain.handle('oq:server:backup', serverCall(() => andRefresh(host.request('backup'))));
+ipcMain.handle('oq:server:backup-telegram', serverCall(() => andRefresh(host.request('backup-telegram'))));
+ipcMain.handle('oq:server:restore', serverCall(async () => {
+  const r = await pickFile({
+    title: 'Zaxira faylini tanlang (.oqz)', defaultPath: host.backupDir, properties: ['openFile'], filters: [{ name: 'Oqtosh zaxirasi', extensions: ['oqz'] }],
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  const ok = await dialog.showMessageBox(home && !home.isDestroyed() ? home : undefined, {
+    type: 'warning', buttons: ['Tiklash', 'Bekor qilish'], defaultId: 1, cancelId: 1, noLink: true, title: 'Zaxiradan tiklash',
+    message: `Ma'lumotlar ${path.basename(r.filePaths[0])} holatiga qaytarilsinmi?`,
+    detail: 'Hozirgi ma’lumotlar oldin alohida zaxiraga saqlanadi. Zaxiradan keyingi buyurtmalar ro‘yxatdan chiqadi.',
+  });
+  if (ok.response !== 0) return null;
+  return andRefresh(host.request('restore', { file: r.filePaths[0] }, 10 * 60_000));
+}));
+ipcMain.handle('oq:server:open', serverCall((what) => {
+  if (what === 'backups') return host.openBackups();
+  if (what === 'log') return host.openLog();
+  const u = host.urls();
+  if (what === 'site' || what === 'admin') return shell.openExternal(u[what]);
+  return false;
+}));
+
 /* ───────── yangilanish (GitHub Releases → latest.yml) ───────── */
 let updater = null;
 let updateState = { status: 'idle', version: '' };
@@ -456,11 +669,17 @@ let askedFor = '';
 const setUpdate = (patch) => {
   updateState = { ...updateState, ...patch };
   toHome('oq:update', updateState);
+  // bo'lim oynalaridagi (kassa, ofitsiant…) chetdagi menyu ham bilsin
+  for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('oq:update', updateState);
 };
-function installUpdate() {
+async function installUpdate() {
   if (!updater || updateState.status !== 'ready') return;
   quitting = true;
   agent?.stop();
+  serverStopped = true;
+  try {
+    await host.stopAll(); // ma'lumotlar diskka yoziladi, keyin o'rnatiladi
+  } catch {}
   setImmediate(() => updater.quitAndInstall(true, true)); // jim o'rnatadi va qayta ochadi
 }
 function setupUpdater() {
@@ -492,6 +711,11 @@ function setupUpdater() {
   });
   checkUpdates();
   setInterval(() => checkUpdates(), 30 * 60_000);
+  // POS monobloklar kechasi ham o'chirilmaydi: "Keyinroq" deyilgan yangilanish tunda (03:00–06:00) o'zi o'rnatiladi
+  setInterval(() => {
+    const h = new Date().getHours();
+    if (updateState.status === 'ready' && h >= 3 && h < 6) installUpdate();
+  }, 10 * 60_000);
 }
 function checkUpdates(manual = false) {
   if (!updater) {
@@ -507,17 +731,21 @@ app.on('second-instance', () => showHome());
 // Printer dasturi ulanmagan bo'lsa va ko'rinadigan oyna qolmasa — dastur yopiladi (aks holda tray'da ishlaydi)
 function maybeQuit() {
   setTimeout(() => {
-    if (quitting || agent) return;
+    if (quitting || agent || serverOn()) return;
     const visible = BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w !== helper && w.isVisible());
     if (!visible) quit();
   }, 300);
 }
 app.on('browser-window-created', (_e, w) => w.on('closed', maybeQuit));
 app.on('window-all-closed', () => {
-  if (!agent) quit();
+  if (!agent && !serverOn()) quit();
 });
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
   quitting = true;
+  if (!serverStopped && (host.child || host.tunnel)) {
+    e.preventDefault();
+    stopServerThenQuit();
+  }
 });
 
 app.whenReady().then(() => {
@@ -531,11 +759,14 @@ app.whenReady().then(() => {
     const to = originOf(d.redirectURL);
     if (to.startsWith('https://')) aliases.add(to);
   });
+  adoptOldCmdPrinter();
   buildMenu();
   buildTray();
   applyAutostart();
+  setupServer();
   startAgent();
   setupUpdater();
+  watchOldAdmin();
   if (!hidden) {
     // ofitsiant terminali — darhol ofitsiant oynasi (to'liq ekran)
     if (!isMain()) openSection('ofitsiant');

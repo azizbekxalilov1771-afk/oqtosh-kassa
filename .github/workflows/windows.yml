@@ -34,7 +34,8 @@ jobs:
           PY="$(command -v python || command -v python3)"
           rm -rf .zip-src && mkdir .zip-src
           "$PY" -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$zip" .zip-src
-          pkg="$(find .zip-src -maxdepth 3 -name package.json -not -path '*/node_modules/*' | head -1)"
+          # dasturning o'z package.json'i (ichidagi server/package.json emas)
+          pkg="$(grep -l '"name": "oqtosh-kassa"' $(find .zip-src -maxdepth 3 -name package.json -not -path '*/node_modules/*') 2>/dev/null | head -1 || true)"
           [ -n "$pkg" ] || { echo "Zip ichida package.json topilmadi — bu oqtosh-desktop.zip emas."; exit 1; }
           cp -R "$(dirname "$pkg")"/. .
           rm -rf .zip-src node_modules dist
@@ -61,8 +62,23 @@ jobs:
       - name: Paketlarni o'rnatish
         run: npm install --no-audit --no-fund
 
+      # Server kompyuteri: sayt kodi (server/) uchun paketlar va Cloudflare Tunnel dasturi
+      - name: Server paketlari
+        shell: bash
+        run: cd server && npm install --omit=dev --no-audit --no-fund
+
+      - name: cloudflared (Cloudflare Tunnel)
+        shell: bash
+        run: |
+          mkdir -p bin
+          curl -fsSL --retry 3 -o bin/cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
+          ./bin/cloudflared.exe --version
+
       - name: Printer moduli tekshiruvi
         run: npm test
+
+      - name: Server tekshiruvi (Windows'da ishga tushib, ma'lumotni saqlashi)
+        run: node test/server-smoke.js
 
       # har yig'ishda versiya o'sadi (2.1.<raqam>) — o'rnatilgan dasturlar yangisini o'zi topadi
       - name: Versiya

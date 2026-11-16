@@ -1,12 +1,17 @@
 {
   "site": "https://oqtoshrestoran.uz",
-  "admin": "https://oqtoshrestoran-admin.netlify.app",
+  "admin": "https://admin.oqtoshrestoran.uz",
+  "domain": "oqtoshrestoran.uz",
   "oldAdmin": [
     "https://oqtosh-panel.netlify.app",
     "https://oqtosh-admin.netlify.app"
   ],
+  "probeAdmin": [
+    "https://oqtoshrestoran-admin.netlify.app"
+  ],
   "aliases": [
     "https://oqtoshrestoran.netlify.app",
-    "https://oqtosh-sayt.netlify.app"
+    "https://oqtosh-sayt.netlify.app",
+    "https://oqtoshrestoran-admin.netlify.app"
   ]
 }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oqtosh Restoran</title>
+  <meta name="description" content="Oqtosh Restoran — yangiliklar, restoran haqida, manzillar va bog‘lanish. Buyurtmani onlayn bering.">
+  <meta name="theme-color" content="#0b0b0d">
+  <meta property="og:title" content="Oqtosh Restoran">
+  <meta property="og:type" content="restaurant.restaurant">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/js/landing.js"></script>
+</head>
+<body class="landing">
+  <a class="skip" href="#asosiy">Asosiy qismga o‘tish</a>
+
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="Bosh sahifa">
+      <svg class="brand-mark" data-logo="header" viewBox="-20 -20 40 40" aria-hidden="true">
+        <circle r="19" class="f-cobalt"/><circle r="12" class="f-plate"/><circle r="4" class="f-ishkor"/>
+      </svg>
+      <span data-info="name">Oqtosh Restoran</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Bo‘limlar"></nav>
+    <a class="btn btn-small btn-ghost header-menu" href="/menyu.html?faqat=menyu">Menyu</a>
+    <a class="btn btn-small" href="/buyurtma.html" data-order>Buyurtma berish</a>
+  </header>
+
+  <main id="asosiy" tabindex="-1">
+    <!-- Birinchi qism: logo — har doim tepada -->
+    <section class="hero-landing" aria-labelledby="hero-title">
+      <div class="hero-inner">
+        <svg class="hero-emblem" id="lagan" data-logo="hero" viewBox="-200 -200 400 400" aria-hidden="true"></svg>
+        <h1 id="hero-title" data-info="name">Oqtosh Restoran</h1>
+        <p class="lead" data-info="tagline">Milliy taomlar, issiq non va choy — oilaviy davra uchun.</p>
+        <div class="hero-actions">
+          <a class="btn btn-on-cobalt btn-menu-view" href="/menyu.html?faqat=menyu">📖 Menyuni ko‘rish</a>
+          <a class="btn btn-on-cobalt" href="/buyurtma.html" data-order>Buyurtma berish</a>
+          <a class="btn btn-ghost-on-cobalt" id="hero-call" hidden>Qo‘ng‘iroq qilish</a>
+        </div>
+        <p class="hero-hours" id="hero-hours" hidden></p>
+      </div>
+    </section>
+
+    <!-- Qolgan bo'limlar admin paneldagi tartibda chiziladi -->
+    <div id="sections"></div>
+  </main>
+
+  <footer class="site-footer">
+    <span><span data-info="name">Oqtosh Restoran</span>, <span data-year></span></span>
+    <span class="footer-links">
+      <a href="/menyu.html">Menyu, savol va shikoyat</a>
+      <a href="/buyurtma.html" data-order>Buyurtma berish</a>
+      <a href="/maxfiylik.html">Maxfiylik siyosati</a>
+      <a href="/hisobni-ochirish.html">Hisobni o‘chirish</a>
+    </span>
+  </footer>
+</body>
+</html>
