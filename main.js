@@ -39,7 +39,7 @@ const readJson = (file, fb) => {
     return fb;
   }
 };
-let settings = { site: defaults.site, admin: defaults.admin, autostart: true, startWith: 'home', fullscreen: true, htmlPrinter: '', ...readJson(SETTINGS_FILE, {}) };
+let settings = { site: defaults.site, admin: defaults.admin, autostart: true, startWith: 'home', fullscreen: true, htmlPrinter: '', osk: 'auto', ...readJson(SETTINGS_FILE, {}) };
 settings.server = { enabled: false, domain: defaults.domain || 'oqtoshrestoran.uz', ...(settings.server || {}) };
 function saveSettings() {
   fs.mkdirSync(userDir, { recursive: true });
@@ -448,11 +448,14 @@ ipcMain.handle('oq:settings:set', async (e, patch) => {
   for (const k of ['autostart', 'fullscreen']) if (patch[k] !== undefined) next[k] = Boolean(patch[k]);
   if (patch.startWith !== undefined) next.startWith = ['home', 'kassa', 'ofitsiant'].includes(patch.startWith) ? patch.startWith : 'home';
   if (patch.htmlPrinter !== undefined) next.htmlPrinter = String(patch.htmlPrinter).slice(0, 200);
+  if (patch.osk !== undefined && OSK_MODES.includes(patch.osk)) next.osk = patch.osk;
+  const oskChanged = next.osk !== settings.osk;
   const siteChanged = next.site !== settings.site;
   settings = next;
   saveSettings();
   applyAutostart();
   if (siteChanged && agent) startAgent();
+  if (oskChanged) broadcastOsk();
   return settings;
 });
 ipcMain.handle('oq:pair', async (e, code) => {
@@ -482,13 +485,32 @@ ipcMain.handle('oq:update:install', (e) => {
   installUpdate();
   return true;
 });
+// Ekran klaviaturasi: auto — barmoq bilan bosilganda, on — doim (sichqoncha bilan ham), off — o'chiq.
+// Hamma oynalar bir xil rejimda; o'zgarsa ochiq oynalarga darhol yuboriladi.
+const OSK_MODES = ['auto', 'on', 'off'];
+const oskMode = () => (OSK_MODES.includes(settings.osk) ? settings.osk : 'auto');
+function broadcastOsk() {
+  for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('oq:osk', oskMode());
+}
+ipcMain.on('oq:osk:get', (e) => {
+  e.returnValue = oskMode();
+});
+ipcMain.handle('oq:osk:set', (e, mode) => {
+  if (!fromHome(e) && !isOurs(e.senderFrame?.url || '')) return oskMode();
+  if (!OSK_MODES.includes(mode) || mode === settings.osk) return oskMode();
+  settings.osk = mode;
+  saveSettings();
+  broadcastOsk();
+  return mode;
+});
+
 // Sensorli POS monoblok (klaviaturasiz): bo'lim oynalaridagi chetdagi menyu uchun
 const MENU_SECTIONS = ['kassa', 'ofitsiant', 'ombor', 'admin', 'owner'];
 ipcMain.handle('oq:menu:state', (e) => {
   if (!fromHome(e) && !isOurs(e.senderFrame?.url || '')) return null;
   const w = BrowserWindow.fromWebContents(e.sender);
   return {
-    version: app.getVersion(), main: isMain(), fullscreen: Boolean(w?.isFullScreen()), update: updateState,
+    version: app.getVersion(), main: isMain(), fullscreen: Boolean(w?.isFullScreen()), update: updateState, osk: oskMode(),
     sections: MENU_SECTIONS.filter(allowed).map((id) => ({ id, title: SECTIONS[id].title })),
   };
 });

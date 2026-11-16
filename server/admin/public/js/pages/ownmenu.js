@@ -124,7 +124,8 @@ export async function render(root) {
               i.image ? el('img', { className: 'own-thumb', src: i.image, alt: '', loading: 'lazy' }) : el('span', { className: 'own-thumb is-empty', textContent: '🍽' }),
               el('div', { className: 'item-main' },
                 el('h3', { textContent: i.name }),
-                el('p', { className: 'muted', textContent: [i.weight, i.perKg ? '1 kg narxi' : '', i.options?.length ? `${i.options.length} ta qo‘shimcha guruhi` : ''].filter(Boolean).join(' · ') || ' ' })),
+                el('p', { className: 'muted', textContent: [i.weight, i.perKg ? '1 kg narxi' : '', i.options?.length ? `${i.options.length} ta qo‘shimcha guruhi` : ''].filter(Boolean).join(' · ') || ' ' }),
+                i.description ? el('p', { className: 'own-desc small', textContent: i.description }) : el('p', { className: 'own-desc small is-empty', textContent: 'izoh yo‘q' })),
               el('strong', { className: 'own-price', textContent: `${num(i.price)} so‘m` }),
               el('label', { className: 'toggle' }, sw),
               btn('Tahrirlash', () => editItem(i), 'btn-ghost btn-small'));
@@ -175,7 +176,40 @@ export async function render(root) {
           }, 'btn-text btn-small danger')));
     });
 
+    // 🥤 Tayyor ichimliklar (O‘zbekistonda sotiladigan) va ✍ barcha taomlarga izoh
+    const noDesc = menu.items.filter((i) => !String(i.description || '').trim()).length;
+    const quick = el('div', { className: 'card own-quick' },
+      el('div', { className: 'own-quick-row' },
+        el('div', {}, el('h3', { textContent: '🥤 Ichimliklar to‘plami' }),
+          el('p', { className: 'muted small', textContent: 'O‘zbekistonda sotiladigan ichimliklar narxi va izohi bilan: Сочная Долина va Dena sharbatlari, Coca-Cola, Fanta, Sprite, Pepsi, Mirinda, 7Up, Fuse Tea, Lipton, energetiklar, Hydrolife, Nestlé, Chortoq, Omonxona suvlari. Bor taomlar qayta qo‘shilmaydi; narxlarni keyin o‘zgartirasiz.' })),
+        btn('Qo‘shish', (e) => busy(e.currentTarget, 'Qo‘shilmoqda…', async () => {
+          try {
+            const r = await api('/own/preset/drinks', { method: 'POST', body: {} });
+            toast(r.added ? `${r.added} ta ichimlik qo‘shildi (${r.categories.join(', ')})${r.skipped ? `, ${r.skipped} tasi oldin bor edi` : ''}.` : 'Hammasi menyuda bor edi.');
+            await reload();
+          } catch (err) {
+            toast(err.message, 'error');
+          }
+        }))),
+      el('div', { className: 'own-quick-row' },
+        el('div', {}, el('h3', { textContent: '✍ Barcha taomlarga izoh' }),
+          el('p', { className: 'muted small', textContent: noDesc ? `${noDesc} ta taomning izohi yo‘q. Tarkibi va qanday tortilishi yoziladi (o‘zbek taomlari — tayyor matndan, qolganlari — AI). Keyin har birini “Tahrirlash”da tuzatasiz.` : 'Hamma taomda izoh bor. Qaytadan yozdirish mumkin.' })),
+        el('div', { className: 'row wrap' },
+          btn(noDesc ? `Izoh yozish (${noDesc})` : 'Qaytadan yozish', (e) => {
+            const overwrite = !noDesc;
+            if (overwrite && !confirm('Barcha taomlarning izohi qaytadan yoziladi (qo‘lda yozilganlari ham). Davom etilsinmi?')) return;
+            busy(e.currentTarget, 'Yozilmoqda…', async () => {
+              try {
+                const r = await api('/own/describe', { method: 'POST', body: { overwrite } });
+                toast(`${r.filled} ta taomga izoh yozildi${r.left ? ` · ${r.left} tasi qoldi (taniy olmadi — qo‘lda yozing)` : ''}${r.aiError ? ` · AI: ${r.aiError}` : !r.aiAvailable && r.left ? ' · AI ulanmagan (Kalitlar → Groq)' : ''}`);
+                await reload();
+              } catch (err) {
+                toast(err.message, 'error');
+              }
+            });
+          }, noDesc ? '' : 'btn-ghost'))));
     return el('div', { className: 'stack' },
+      quick,
       el('div', { className: 'row wrap align-center own-toolbar' }, q, filter, btn('+ Taom qo‘shish', () => editItem(null))),
       el('details', { className: 'card cat-manager' }, el('summary', { textContent: `Bo‘limlar tartibi va nomlari (${menu.categories.length})` }), el('ul', { className: 'cat-list' }, catRows)),
       list);

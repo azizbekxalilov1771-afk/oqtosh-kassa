@@ -107,6 +107,7 @@ async function init() {
   f.startWith.value = st.settings.startWith || 'home';
   f.autostart.checked = Boolean(st.settings.autostart);
   f.fullscreen.checked = st.settings.fullscreen !== false;
+  f.osk.value = st.settings.osk || 'auto';
   f.htmlPrinter.replaceChildren(el('option', { value: '' }, 'Windows’dagi asosiy printer'), ...st.printers.map((p) => el('option', { value: p.name }, `${p.name}${p.isDefault ? ' (asosiy)' : ''}`)));
   f.htmlPrinter.value = st.settings.htmlPrinter || '';
   paintServer(st.server);
@@ -166,7 +167,7 @@ $('#settings').addEventListener('submit', async (e) => {
   const err = $('#set-err');
   err.hidden = true;
   try {
-    await OqDesktop.setSettings({ site: f.site.value, admin: f.admin.value, htmlPrinter: f.htmlPrinter.value, startWith: f.startWith.value, autostart: f.autostart.checked, fullscreen: f.fullscreen.checked });
+    await OqDesktop.setSettings({ site: f.site.value, admin: f.admin.value, htmlPrinter: f.htmlPrinter.value, startWith: f.startWith.value, autostart: f.autostart.checked, fullscreen: f.fullscreen.checked, osk: f.osk.value });
     $('#saved').hidden = false;
     setTimeout(() => ($('#saved').hidden = true), 2500);
   } catch (x) {

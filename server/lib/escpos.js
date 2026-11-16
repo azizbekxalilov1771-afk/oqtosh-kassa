@@ -298,6 +298,8 @@ function shiftLines(t, r, brand, f) {
   if (r.service) t.pair('Xizmat haqi', num(r.service));
   if (r.discount) t.pair(`Chegirmalar (${r.discountCount})`, `-${num(r.discount)}`);
   if (r.delivery) t.pair('Yetkazishlar', String(r.delivery));
+  if (r.debtGiven?.count) t.pair(`Qarzga berildi (${r.debtGiven.count})`, num(r.debtGiven.sum));
+  if (r.debtPaid?.count) t.pair(`Qarz to'lovlari (${r.debtPaid.count})`, num(r.debtPaid.sum));
   t.rule();
   t.line("TO'LOV TURLARI", { bold: true });
   for (const m of r.methods || []) t.pair(`${m.label} (${m.count})`, num(m.sum));
@@ -306,6 +308,7 @@ function shiftLines(t, r, brand, f) {
   t.line('NAQD PUL', { bold: true });
   t.pair("Boshlang'ich", num(r.openingCash));
   t.pair('Naqd savdo', num(r.cashSales));
+  if (r.debtPaid?.cash) t.pair("Qarz to'lovlari", `+${num(r.debtPaid.cash)}`);
   if (r.cashIn) t.pair('Kiritildi', `+${num(r.cashIn)}`);
   if (r.cashOut) t.pair('Olindi', `-${num(r.cashOut)}`);
   t.pair("Kassada bo'lishi kerak", num(r.expectedCash), { bold: true });
@@ -341,6 +344,27 @@ function shiftLines(t, r, brand, f) {
   t.rule();
 }
 
+
+// To'lov qatorlari: oddiy to'lov yoki qarz (to'liq yoki qisman)
+function payLines(t, p) {
+  if (p.debt) {
+    if (p.paid) {
+      t.pair(`To'landi (${String(p.label || 'Naqd').replace(/ \+ qarz$/, '')})`, num(p.paid));
+      if (p.method === 'naqd' && p.change) t.pair('Qaytim', num(p.change));
+    }
+    t.pair('QARZ', `${num(p.debt.amount)} so'm`, { bold: true });
+    t.line(`Qarzdor: ${p.debt.name || ''} ${p.debt.phone || ''}`.trim());
+    t.feed(1).line(p.paid ? "*** QISMAN TO'LANDI ***" : '*** QARZGA YOZILDI ***', { align: 'center', bold: true });
+    return;
+  }
+  t.pair("To'lov turi", p.label || 'Naqd');
+  if (p.method === 'naqd') {
+    t.pair('Berildi', num(p.received));
+    t.pair('Qaytim', num(p.change));
+  }
+  t.feed(1).line("*** TO'LANDI ***", { align: 'center', bold: true, size: 2 });
+}
+
 export function billTicket({ kind, data, brand, footer, width = 48, number = '', byName = '', fmt = {}, preview = false }) {
   const f = { ...BILL, ...fmt };
   const t = new Ticket({ width });
@@ -359,15 +383,8 @@ export function billTicket({ kind, data, brand, footer, width = 48, number = '',
     if (f.showWaiter && data.waiterName) t.pair('Ofitsiant', data.waiterName);
     t.rule();
     tabItems(t, data, f);
-    if (kind === 'paid') {
-      const p = data.payment || {};
-      t.pair("To'lov turi", p.label || 'Naqd');
-      if (p.method === 'naqd') {
-        t.pair('Berildi', num(p.received));
-        t.pair('Qaytim', num(p.change));
-      }
-      t.feed(1).line("*** TO'LANDI ***", { align: 'center', bold: true, size: 2 });
-    } else if (data.pending) t.line(`Tasdiqlanmagan: ${num(data.pending)} so'm (jamiga kirmagan)`);
+    if (kind === 'paid') payLines(t, data.payment || {});
+    else if (data.pending) t.line(`Tasdiqlanmagan: ${num(data.pending)} so'm (jamiga kirmagan)`);
   } else if (kind === 'shift') {
     shiftLines(t, data, brand, f);
     return out(t.cut(), preview);
@@ -382,15 +399,7 @@ export function billTicket({ kind, data, brand, footer, width = 48, number = '',
     if (o.deliveryFee) t.pair('Yetkazish', num(o.deliveryFee));
     t.pair('JAMI', `${num(o.total)} so'm`, { bold: true, size: 2 });
     if (o.comment) t.line(`Izoh: ${o.comment}`);
-    if (kind === 'paidorder') {
-      const p = o.payment || {};
-      t.pair("To'lov turi", p.label || 'Naqd');
-      if (p.method === 'naqd') {
-        t.pair('Berildi', num(p.received));
-        t.pair('Qaytim', num(p.change));
-      }
-      t.feed(1).line("*** TO'LANDI ***", { align: 'center', bold: true, size: 2 });
-    }
+    if (kind === 'paidorder') payLines(t, o.payment || {});
   }
   t.rule();
   const foot = f.footer || footer;

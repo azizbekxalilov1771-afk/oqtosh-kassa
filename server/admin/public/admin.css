@@ -768,3 +768,13 @@ input:not([type=checkbox]):not([type=file]), textarea, select { border-radius: 1
   #screen-login .gate-card { align-self: center; justify-self: center; width: min(400px, 100%); border: 0; background: transparent; box-shadow: none; }
   #screen-login .gate-mark { display: none; }
 }
+
+/* O'z menyumiz: tayyor ichimliklar va izohlar */
+.own-quick { display: grid; gap: 14px; }
+.own-quick-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.own-quick-row h3 { margin: 0 0 4px; font-size: 16px; }
+.own-quick-row p { margin: 0; max-width: 72ch; }
+.own-quick-row + .own-quick-row { border-top: 1px solid var(--line); padding-top: 14px; }
+.own-desc { margin: 2px 0 0; color: var(--muted); max-width: 70ch; }
+.own-desc.is-empty { font-style: italic; opacity: .6; }
+@media (max-width: 640px) { .own-quick-row { grid-template-columns: 1fr; } }

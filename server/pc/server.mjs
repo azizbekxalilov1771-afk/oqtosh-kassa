@@ -56,6 +56,27 @@ const TYPES = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.avif': 'image/avif',
   '.woff2': 'font/woff2', '.woff': 'font/woff', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.pdf': 'application/pdf',
 };
+// Android ilovalari (APK) va versiya.json — ilovalar o'zini shu yerdan yangilaydi.
+// VPS'da /opt/oqtosh/ilova (Termux'dan: android loyihasida  bash scripts/ilovani-yuklash.sh <server IP>)
+const ILOVA_DIR = E.OQ_ILOVA_DIR || (VPS ? '/opt/oqtosh/ilova' : path.join(path.dirname(E.OQ_DATA_DIR), 'ilova'));
+async function serveApp(req, res, name) {
+  if (!/^[a-z0-9][a-z0-9.-]*\.(apk|json)$/.test(name)) return notFound(res);
+  const file = path.join(ILOVA_DIR, name);
+  const st = await fs.promises.stat(file).catch(() => null);
+  if (!st?.isFile()) return notFound(res);
+  const etag = `W/"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
+  const headers = {
+    'Content-Type': name.endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/json; charset=utf-8',
+    'Cache-Control': 'no-cache', ETag: etag, 'X-Content-Type-Options': 'nosniff',
+    ...(name.endsWith('.apk') ? { 'Content-Disposition': `attachment; filename="${name}"` } : {}),
+  };
+  if (req.headers['if-none-match'] === etag) return res.writeHead(304, headers).end();
+  headers['Content-Length'] = st.size;
+  res.writeHead(200, headers);
+  if (req.method === 'HEAD') return res.end();
+  fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
+}
+
 const STAFF_PAGES = ['kassa.html', 'ofitsiant.html', 'kuryer.html', 'ombor.html'];
 const STAFF_ONLY_JS = ['kassa.js', 'ofitsiant.js', 'kuryer.js', 'ombor.js', 'floor.js', 'posorder.js', 'printagent.js', 'print-tick.js', 'pinlogin.js', 'perms.js', 'offline.js'].map((f) => `js/${f}`);
 const STAFF_ASSETS = ['styles.css', 'order.css', 'pos.css', 'favicon.png', 'favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'logo.jpg', 'brand.css', 'sw.js'];
@@ -247,6 +268,7 @@ function makeServer(kind, port) {
         return res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ ok: true, pc: true, ready, kind, version: VERSION }));
       }
       if (urlPath.startsWith('/live/')) return handleLive(req, res, urlPath);
+      if (urlPath.startsWith('/ilova/') && ['GET', 'HEAD'].includes(req.method)) return await serveApp(req, res, urlPath.slice(7));
       const api = urlPath.startsWith('/api/') || (kind === 'admin' && urlPath.startsWith('/admin-api/'));
       if (!ready) return maintenance(res, api);
       if (Number(req.headers['content-length'] || 0) > 25 * 1024 * 1024) return res.writeHead(413).end();

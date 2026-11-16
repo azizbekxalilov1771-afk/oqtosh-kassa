@@ -22,7 +22,7 @@ const app = $('#app');
 let profile = null;
 let viewTimer = null;
 const live = { items: [], calls: [], loaded: false };
-const TABS = ['stollar', 'yetkazish', 'tarix', 'smena', 'sozlamalar', 'hisobot', 'ishhaqi'];
+const TABS = ['stollar', 'yetkazish', 'tarix', 'smena', 'sozlamalar', 'hisobot', 'ishhaqi', 'qarzlar'];
 let siteInfo = {};
 let hallKey = (() => {
   try {
@@ -430,6 +430,8 @@ async function viewTab(id) {
     tab.kind !== 'saboy' ? dlgTool('move', '⇄', 'Ko‘chirish', `Stolni ko‘chirish · ${tab.tableLabel}`) : '',
     dlgTool('split', '✂', 'Bo‘lish', `Hisobni bo‘lish · ${tab.tableLabel}`),
     dlgTool('merge', '⧉', 'Birlashtirish', `Stollarni birlashtirish · ${tab.tableLabel}`),
+    can('order.void') ? tool('−', 'Olib tashlash', () => voidPicker(tab), { cls: 'is-void', disabled: !isOpen || !tab.rounds.some((o) => o.status === 'qabul' && o.items.length) }) : '',
+    can('tab.cancel') ? tool('🗑', 'Chekni o‘chirish', () => cancelTabDialog(tab), { cls: 'is-cancel', disabled: !isOpen }) : '',
     el('span', { className: 'k-tool-gap' }),
     tool('⚙', 'Sozlamalar', () => (location.hash = 'sozlamalar')));
 
@@ -694,6 +696,7 @@ function viewSettings() {
     canAny('shift.open', 'shift.close', 'shift.cash', 'reports.view') ? tile('🧮', 'Smena va hisobot', 'Smenani ochish/yopish, X va Z hisobot, kassaga pul kiritish va olish', '#smena') : '',
     can('tab.history') ? tile('📜', 'Yopilgan cheklar', 'Bugungi va oldingi kunlardagi to‘langan hisoblar', '#tarix') : '',
     can('reports.view') ? tile('📊', 'Savdo hisoboti', 'Bugun, kecha, hafta, oy: to‘lov turlari, ofitsiantlar, eng ko‘p sotilgan taomlar, soatlar', '#hisobot') : '',
+    can('debt.collect') ? tile('📒', 'Qarzlar', 'Kim qancha qarz: ro‘yxat, qidiruv va qarz to‘lovini olish', '#qarzlar') : '',
     can('wages.view') ? tile('💰', 'Xodimlar ish haqi', 'Ishlagan kunlar, xizmat foizi ulushi, kuryer yetkazishlari — kim qancha oladi', '#ishhaqi') : '',
     can('delivery.manage') ? tile('🛵', 'Yetkazib berish', 'Yetkazish buyurtmalari: to‘lov, kuryer, holat', '#yetkazish') : '',
     tile('🔁', 'Boshqa xodim kirishi', 'Smenani topshirish: hozirgi xodim chiqadi, keyingisi PIN bilan kiradi', '', logout),
@@ -701,6 +704,118 @@ function viewSettings() {
   app.replaceChildren(el('div', { className: 'k-set' },
     el('div', { className: 'view-head view-head-row' }, el('h1', { textContent: 'Kassa sozlamalari' }), backTo('stollar')),
     el('div', { className: 'k-set-grid' }, ...tiles)));
+}
+
+// 📒 Qarzlar: ochiq/yopilgan qarzlar, qidiruv (ism yoki telefon), qarz to'lovini olish
+const DEBT_FILTERS = [['open', 'Ochiq'], ['closed', 'Yopilgan'], ['all', 'Hammasi']];
+let debtFilter = 'open';
+function viewDebts() {
+  const seq = renderSeq;
+  const q = el('input', { type: 'search', id: 'debt-search', className: 'search-input', placeholder: 'Ism yoki telefon', autocomplete: 'off' });
+  const sum = el('div', { className: 'debt-sum' });
+  const list = el('div', { className: 'debt-list' }, el('p', { className: 'muted', textContent: 'Yuklanmoqda…' }));
+  const chips = el('div', { className: 'chips range-chips' });
+  const paintChips = () => chips.replaceChildren(...DEBT_FILTERS.map(([k, label]) => el('button', { type: 'button', className: debtFilter === k ? 'is-on' : '', ariaPressed: String(debtFilter === k), textContent: label, onclick: () => { debtFilter = k; paintChips(); load(); } })));
+  paintChips();
+  let timer = null;
+  q.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(load, 250);
+  });
+  async function load() {
+    let r;
+    try {
+      r = await api(`/api/kassa/debts?status=${debtFilter}&q=${encodeURIComponent(q.value.trim())}`);
+    } catch (e) {
+      if (gate(e)) return;
+      return list.replaceChildren(el('p', { className: 'form-error', textContent: e.message }));
+    }
+    if (seq !== renderSeq) return;
+    sum.replaceChildren(
+      el('div', { className: 'staff-stat is-wait' }, el('strong', { textContent: money(r.total.left) }), el('span', { textContent: 'jami ochiq qarz, so‘m' })),
+      el('div', { className: 'staff-stat' }, el('strong', { textContent: r.total.count }), el('span', { textContent: 'qarzdor' })));
+    list.replaceChildren(...(r.items.length ? r.items.map((d) => el('article', { className: `debt-row${d.status === 'closed' ? ' is-closed' : ''}` },
+      el('div', { className: 'debt-main' },
+        el('strong', { className: 'debt-name', textContent: d.name }),
+        el('a', { className: 'debt-phone', href: phoneHref(d.phone), textContent: d.phone }),
+        el('span', { className: 'muted small', textContent: `${d.source.label || ''} · ${fmtTime(d.createdAt)} · ${d.byName}` }),
+        d.payments.length ? el('details', { className: 'debt-hist' }, el('summary', { textContent: `To‘lovlar · ${d.payments.length}` }),
+          el('ul', {}, d.payments.map((p) => el('li', { textContent: `${fmtTime(p.at)} · ${p.label} · ${formatPrice(p.amount)} · ${p.byName}` })))) : ''),
+      el('div', { className: 'debt-side' },
+        el('strong', { className: 'debt-amount', textContent: d.status === 'closed' ? '✓ To‘langan' : formatPrice(d.left) }),
+        el('span', { className: 'muted small', textContent: d.paid ? `${formatPrice(d.amount)} dan ${formatPrice(d.paid)} to‘landi` : `qarz ${formatPrice(d.amount)}` }),
+        d.status === 'open' ? el('button', { type: 'button', className: 'btn btn-pay debt-pay', textContent: 'To‘lash', onclick: async () => {
+          const res = await debtPayDialog(d);
+          if (res) {
+            toastDone(`${d.name}: ${formatPrice(res.amount)} qabul qilindi${res.debt.left ? ` · qoldi ${formatPrice(res.debt.left)}` : ' · qarz yopildi'}${res.change ? ` · qaytim ${formatPrice(res.change)}` : ''}`);
+            load();
+          }
+        } }) : '')))
+      : [el('p', { className: 'k-empty', textContent: debtFilter === 'open' ? 'Ochiq qarz yo‘q.' : 'Topilmadi.' })]));
+  }
+  app.replaceChildren(el('div', { className: 'k-set debt-view' },
+    el('div', { className: 'view-head view-head-row' }, el('h1', { textContent: 'Qarzlar' }), backTo('sozlamalar')),
+    el('div', { className: 'staff-stats' }, sum), el('div', { className: 'debt-tools' }, q, chips), list));
+  load();
+}
+
+// Qarz to'lovi: summa (bo'lib ham) va to'lov turi; naqdda qaytim
+async function debtPayDialog(d) {
+  const list = (await payMethods()).filter((m) => m.kind !== 'click' || !clickPassOn);
+  return new Promise((resolve) => {
+    let method = list[0]?.key || 'naqd';
+    const dlg = el('dialog', { className: 'pay-dialog' });
+    const amount = el('input', { type: 'text', id: 'debtpay-amount', inputMode: 'numeric', value: String(d.left), autocomplete: 'off' });
+    const given = el('input', { type: 'text', id: 'debtpay-given', inputMode: 'numeric', value: '', placeholder: 'aniq', autocomplete: 'off' });
+    const err = el('p', { className: 'form-error', hidden: true });
+    const num = (x) => Math.round(Number(String(x.value).replace(/\s/g, '')) || 0);
+    const cash = el('label', { className: 'pay-row' }, el('span', { textContent: 'Berildi' }), given);
+    const methods = el('div', { className: 'pay-methods' });
+    const paint = () => {
+      methods.replaceChildren(...list.map((m) => el('button', { type: 'button', className: `pay-method${method === m.key ? ' is-on' : ''}`, ariaPressed: String(method === m.key), textContent: `${METHOD_ICON[m.kind] || ''}${m.label}`, onclick: () => { method = m.key; paint(); } })));
+      cash.hidden = method !== 'naqd';
+    };
+    paint();
+    const done = (v) => {
+      resolve(v);
+      dlg.close();
+    };
+    const ok = el('button', { type: 'button', className: 'btn btn-pay btn-wide', textContent: '✓ Qabul qilish' });
+    ok.addEventListener('click', async () => {
+      const a = num(amount);
+      if (!a || a > d.left) {
+        err.textContent = `Summa 1 dan ${formatPrice(d.left)} gacha bo‘lsin.`;
+        err.hidden = false;
+        return;
+      }
+      ok.disabled = true;
+      try {
+        const r = await api(`/api/kassa/debts/${d.id}/pay`, { method: 'POST', body: JSON.stringify({ amount: a, method, received: method === 'naqd' && given.value.trim() ? num(given) : a }) });
+        done({ ...r, amount: a });
+      } catch (e) {
+        ok.disabled = false;
+        if (gate(e)) return done(null);
+        err.textContent = e.message;
+        err.hidden = false;
+      }
+    });
+    dlg.append(
+      el('h2', { textContent: `Qarz to‘lovi · ${d.name}` }),
+      el('div', { className: 'k-total' }, el('span', { textContent: 'QARZ' }), el('strong', { textContent: formatPrice(d.left) })),
+      el('p', { className: 'muted small', textContent: `${d.phone} · ${d.source.label || ''} · ${fmtTime(d.createdAt)}` }),
+      el('label', { className: 'pay-row' }, el('span', { textContent: 'To‘laydi' }), amount),
+      el('div', { className: 'chips quick-chips' }, el('button', { type: 'button', textContent: 'Hammasi', onclick: () => { amount.value = String(d.left); } }),
+        d.left > 2000 ? el('button', { type: 'button', textContent: 'Yarmi', onclick: () => { amount.value = String(Math.round(d.left / 2000) * 1000); } }) : ''),
+      methods, cash, err,
+      el('div', { className: 'row' }, ok, el('button', { type: 'button', className: 'btn btn-ghost', textContent: 'Bekor', onclick: () => done(null) })));
+    dlg.addEventListener('close', () => {
+      dlg.remove();
+      resolve(null);
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+    setTimeout(() => amount.select(), 50);
+  });
 }
 
 // To'lov: turi (admin yoqqan: naqd, karta, Click, Payme, Uzum, Humo...), naqdda berilgan pul va qaytim, to'lov cheki
@@ -732,6 +847,56 @@ async function payDialog({ title, total, pending = 0, note = '' }) {
     // Click Pass: mijoz Click ilovasidagi QR'ni ko'rsatadi — skaner (klaviatura kabi) kodni yozib Enter bosadi
     const kindOf = () => list.find((m) => m.key === method)?.kind;
     const qr = el('input', { type: 'text', className: 'pay-qr', autocomplete: 'off', spellcheck: false, placeholder: 'Skaner shu yerga yozadi…', ariaLabel: 'Click QR kodi' });
+    // 📒 Qarz: hammasi yoki bir qismi qarzga (ism + telefon); qolgan qismi tanlangan turda hozir to'lanadi
+    let debtOn = false;
+    const dName = el('input', { type: 'text', id: 'debt-name', maxLength: 60, autocomplete: 'off', placeholder: 'Ism familiya' });
+    const dPhone = el('input', { type: 'tel', id: 'debt-phone', inputMode: 'tel', maxLength: 20, autocomplete: 'off', placeholder: '+998 90 123 45 67' });
+    const dPaid = el('input', { type: 'text', id: 'debt-paid', inputMode: 'numeric', value: '0', autocomplete: 'off' });
+    const dLeft = el('strong', { className: 'debt-left' });
+    const dInfo = el('p', { className: 'notice warn debt-info', hidden: true });
+    const paidVal = () => Math.max(0, Math.round(Number(dPaid.value.replace(/\s/g, '')) || 0));
+    const paintDebt = () => {
+      const left = total - paidVal();
+      dLeft.textContent = left > 0 ? formatPrice(left) : '—';
+      dLeft.classList.toggle('is-bad', left <= 0);
+      methods.classList.toggle('is-dim', debtOn && !paidVal());
+      ok.textContent = debtOn ? (paidVal() ? `📒 ${formatPrice(paidVal())} to‘landi, qolgani qarzga` : '📒 Hammasini qarzga yozish') : '✓ To‘landi';
+    };
+    dPaid.addEventListener('input', paintDebt);
+    let lastPhone = '';
+    const lookPhone = async () => {
+      const digits = dPhone.value.replace(/\D/g, '');
+      if (digits.length < 9 || digits === lastPhone) return;
+      lastPhone = digits;
+      try {
+        const r = await api(`/api/kassa/debts/phone?phone=${encodeURIComponent(dPhone.value)}`);
+        dInfo.hidden = !r.count;
+        dInfo.textContent = r.count ? `Bu raqamda ochiq qarz bor: ${formatPrice(r.left)} (${r.count} ta)${r.name ? ` — ${r.name}` : ''}` : '';
+        if (r.name && !dName.value.trim()) dName.value = r.name;
+      } catch {}
+    };
+    dPhone.addEventListener('input', lookPhone);
+    const debtBox = el('div', { className: 'pay-debt', hidden: true },
+      el('label', { className: 'debt-field' }, el('span', { textContent: 'Telefon' }), dPhone),
+      el('label', { className: 'debt-field' }, el('span', { textContent: 'Ism' }), dName),
+      dInfo,
+      el('label', { className: 'debt-field' }, el('span', { textContent: 'Hozir to‘laydi' }), dPaid),
+      el('div', { className: 'debt-field is-left' }, el('span', { textContent: 'Qarzga qoladi' }), dLeft),
+      el('div', { className: 'chips quick-chips' },
+        el('button', { type: 'button', textContent: 'Hammasi qarzga', onclick: () => { dPaid.value = '0'; paintDebt(); } }),
+        el('button', { type: 'button', textContent: 'Yarmi', onclick: () => { dPaid.value = String(Math.round(total / 2000) * 1000); paintDebt(); } })));
+    const debtBtn = can('tab.debt') && total > 0 ? el('button', { type: 'button', className: 'pay-debt-toggle', ariaPressed: 'false', textContent: '📒 Qarzga yozish' }) : null;
+    debtBtn?.addEventListener('click', () => {
+      debtOn = !debtOn;
+      debtBtn.ariaPressed = String(debtOn);
+      debtBtn.classList.toggle('is-on', debtOn);
+      debtBtn.textContent = debtOn ? '✕ Qarzsiz to‘lash' : '📒 Qarzga yozish';
+      debtBox.hidden = !debtOn;
+      err.hidden = true;
+      paintKind();
+      paintDebt();
+      if (debtOn) setTimeout(() => dPhone.focus(), 30);
+    });
     const qrBox = el('div', { className: 'pay-qr-box' },
       el('div', { className: 'pay-qr-head' }, el('b', { textContent: '📷 Mijozning Click QR kodini skanerlang' }),
         el('span', { className: 'muted small', textContent: 'Click ilovasi → “Click Pass” → QR. Pul shu zahoti yechiladi.' })),
@@ -747,8 +912,8 @@ async function payDialog({ title, total, pending = 0, note = '' }) {
       done({ payment: { method, qr: qr.value.trim() }, print: printCb.checked });
     });
     const paintKind = () => {
-      cashBox.hidden = !isCash();
-      qrBox.hidden = !(clickPassOn && kindOf() === 'click');
+      cashBox.hidden = !isCash() || debtOn;
+      qrBox.hidden = debtOn || !(clickPassOn && kindOf() === 'click');
       if (!qrBox.hidden) setTimeout(() => qr.focus(), 30);
     };
     const paintChange = () => {
@@ -763,18 +928,28 @@ async function payDialog({ title, total, pending = 0, note = '' }) {
       el('div', { className: 'chips quick-chips' }, ups.map((v) => el('button', { type: 'button', textContent: v === total ? 'Aniq' : money(v), onclick: () => { received.value = String(v); paintChange(); } }))),
       el('div', { className: 'pay-row' }, el('span', { textContent: 'Qaytim' }), change));
     const methods = el('div', { className: 'pay-methods' });
+    let ok = null;
     const paintMethods = () => {
       methods.replaceChildren(...list.map((m) => el('button', { type: 'button', className: `pay-method${method === m.key ? ' is-on' : ''}`, ariaPressed: String(method === m.key), textContent: `${METHOD_ICON[m.kind] || ''}${m.label}`, onclick: () => { method = m.key; paintMethods(); paintKind(); } })));
     };
-    paintMethods();
-    paintKind();
-    paintChange();
     const done = (v) => {
       resolve(v);
       dlg.close();
     };
-    const ok = el('button', { type: 'button', className: 'btn btn-pay btn-wide', textContent: '✓ To‘landi' });
+    ok = el('button', { type: 'button', className: 'btn btn-pay btn-wide', textContent: '✓ To‘landi' });
+    paintMethods();
+    paintKind();
+    paintChange();
     ok.addEventListener('click', () => {
+      if (debtOn) {
+        const bad = dPhone.value.replace(/\D/g, '').length < 9 ? 'Telefon raqamini to‘liq yozing.' : dName.value.trim().length < 2 ? 'Qarzdorning ismini yozing.' : paidVal() >= total ? 'Hammasi to‘lansa — “Qarzsiz to‘lash”ni tanlang.' : '';
+        if (bad) {
+          err.textContent = bad;
+          err.hidden = false;
+          return;
+        }
+        return done({ payment: { method, debt: { name: dName.value.trim(), phone: dPhone.value, paid: paidVal() } }, print: printCb.checked });
+      }
       if (isCash() && val() < total) {
         err.textContent = 'Berilgan pul jamidan kam.';
         err.hidden = false;
@@ -787,7 +962,7 @@ async function payDialog({ title, total, pending = 0, note = '' }) {
       el('div', { className: 'k-total' }, el('span', { textContent: 'JAMI' }), el('strong', { textContent: formatPrice(total) })),
       pending ? el('p', { className: 'notice', textContent: `Tasdiqlanmagan ${formatPrice(pending)} bekor qilinadi.` }) : '',
       note ? el('p', { className: 'muted small', textContent: note }) : '',
-      methods, cashBox, qrBox,
+      methods, cashBox, qrBox, debtBtn || '', debtBox,
       el('label', { className: 'toggle' }, printCb, el('span', { textContent: 'To‘lov chekini chiqarish (kassa printeri)' })),
       err,
       el('div', { className: 'row' }, ok, el('button', { type: 'button', className: 'btn btn-ghost', textContent: 'Bekor', onclick: () => done(null) })));
@@ -986,7 +1161,58 @@ async function viewOrder(id, back) {
 
 // Taomni hisobdan olib tashlash: miqdor (dona bo'lsa) va sabab; oshxonaga "BEKOR" cheki chiqadi
 const VOID_REASONS = ['Mijoz voz kechdi', 'Xato kiritildi', 'Taom tugagan', 'Uzoq kutildi', 'Sifat yoqmadi'];
-function voidItem(order, item, back) {
+
+// Stol hisobidan taomni olib tashlash: qaysi taom (masalan 2 ta nondan 1 tasi) → soni → sabab
+function voidPicker(tab) {
+  const rounds = tab.rounds.filter((o) => o.status === 'qabul' && o.items.length);
+  let dlg = null;
+  const list = el('ul', { className: 'void-pick' }, rounds.flatMap((o) => o.items.map((i) => el('li', {},
+    el('button', { type: 'button', className: 'void-pick-row', onclick: () => {
+      dlg?.close();
+      voidItem(o, i, null, { after: () => viewTab(tab.id) });
+    } },
+    el('span', { className: 'void-pick-qty', textContent: qtyText(i) }),
+    el('span', { className: 'void-pick-name' }, el('b', { textContent: i.name }), el('small', { className: 'muted', textContent: ` · #${o.number}${i.note ? ` · ${i.note}` : ''}` })),
+    el('span', { className: 'void-pick-sum', textContent: formatPrice(i.sum) }),
+    el('span', { className: 'void-pick-x', ariaHidden: 'true', textContent: '−' }))))));
+  dlg = toolDialog(`Olib tashlash · ${tab.tableLabel}`, el('div', { className: 'ctl' },
+    el('p', { className: 'muted small', textContent: 'Taomni tanlang — keyin nechta olib tashlashni va sababini yozasiz.' }), list));
+}
+
+// Butun chekni o'chirish: stoldagi hamma buyurtma bekor bo'ladi (oshxonaga "BEKOR" cheki), stol bo'shaydi
+const TAB_CANCEL_REASONS = ['Noto‘g‘ri stolga yozildi', 'Mijoz ketib qoldi', 'Ikki marta yozildi', 'Sinov buyurtma'];
+function cancelTabDialog(tab) {
+  const reason = el('textarea', { id: 'tab-cancel-reason', rows: 2, maxLength: 200, className: 'pos-comment', placeholder: 'Sabab (majburiy)' });
+  const err = el('p', { className: 'form-error', hidden: true });
+  const ok = el('button', { type: 'button', className: 'btn btn-danger btn-wide', textContent: `🗑 ${tab.tableLabel} — chekni o‘chirish` });
+  let dlg = null;
+  ok.addEventListener('click', async () => {
+    if (reason.value.trim().length < 3) {
+      err.textContent = 'Sababini yozing yoki tanlang.';
+      err.hidden = false;
+      return;
+    }
+    ok.disabled = true;
+    try {
+      const r = await api(`/api/kassa/tabs/${tab.id}/cancel`, { method: 'POST', body: JSON.stringify({ reason: reason.value.trim() }) });
+      dlg.close();
+      poll();
+      if (r.mison?.length) alert(`Chek saytda o‘chirildi.\n\nMison’dan o‘chmadi:\n${r.mison.join('\n')}\n\nMison kassasining o‘zida o‘chiring.`);
+      else toastDone(`${tab.tableLabel} — chek o‘chirildi`);
+      location.hash = 'stollar';
+    } catch (e) {
+      ok.disabled = false;
+      if (gate(e)) return dlg.close();
+      err.textContent = e.message;
+      err.hidden = false;
+    }
+  });
+  dlg = toolDialog(`Chekni o‘chirish · ${tab.tableLabel}`, el('div', { className: 'ctl' },
+    el('p', { className: 'notice warn', textContent: `Stoldagi hamma buyurtma (${formatPrice(tab.total)}) bekor qilinadi, stol bo‘shaydi. Oshxonaga “BEKOR” cheki chiqadi. Kim va nega o‘chirgani smena hisobotida ko‘rinadi.` }),
+    el('div', { className: 'chips quick-chips' }, TAB_CANCEL_REASONS.map((t) => el('button', { type: 'button', textContent: t, onclick: () => { reason.value = t; } }))),
+    reason, err, ok));
+}
+function voidItem(order, item, back, { after = null } = {}) {
   const dlg = el('dialog', { className: 'pay-dialog cancel-dialog' });
   const kg = item.unit === 'kg';
   let qty = 1;
@@ -1011,7 +1237,8 @@ function voidItem(order, item, back) {
       poll();
       if (r.misonOpen) alert('Taom saytdagi hisobdan olib tashlandi.\n\nMison kassasida ham shu taomni olib tashlang (Mison buyurtmasi API orqali o‘zgarmaydi).');
       else toastDone(`${item.name} olib tashlandi`);
-      viewOrder(order.id, back);
+      if (after) after();
+      else viewOrder(order.id, back);
     } catch (e) {
       err.textContent = e.message;
       err.hidden = false;
@@ -1131,6 +1358,7 @@ function reportBlocks(r) {
         r.methods.length ? table(r.methods.map((m) => [`${m.label} · ${m.count}`, formatPrice(m.sum)])) : el('p', { className: 'muted', textContent: 'Hali to‘lov yo‘q.' })),
       el('section', { className: 'card-lite' }, el('h3', { textContent: 'Naqd pul' }), table([
         ['Boshlang‘ich', formatPrice(r.openingCash)], ['Naqd savdo', formatPrice(r.cashSales)],
+        r.debtPaid?.cash ? ['Qarz to‘lovlari (naqd)', `+${formatPrice(r.debtPaid.cash)}`] : null,
         r.cashIn ? ['Kiritildi', `+${formatPrice(r.cashIn)}`] : null, r.cashOut ? ['Olindi', `−${formatPrice(r.cashOut)}`] : null,
         ['Kassada bo‘lishi kerak', formatPrice(r.expectedCash), 'is-total'],
         r.countedCash !== null ? ['Sanaldi', formatPrice(r.countedCash)] : null,
@@ -1139,6 +1367,8 @@ function reportBlocks(r) {
         ['Xizmat haqi', formatPrice(r.service)], r.discount ? [`Chegirmalar · ${r.discountCount}`, `−${formatPrice(r.discount)}`] : null,
         r.delivery ? ['Yetkazishlar', String(r.delivery)] : null,
         r.unpaid.count ? [`To‘lovsiz yopilgan · ${r.unpaid.count}`, formatPrice(r.unpaid.sum)] : null,
+        r.debtGiven?.count ? [`Qarzga berildi · ${r.debtGiven.count}`, formatPrice(r.debtGiven.sum)] : null,
+        r.debtPaid?.count ? [`Qarz to‘lovlari · ${r.debtPaid.count}`, formatPrice(r.debtPaid.sum)] : null,
         r.cancelled.count ? [`Bekor qilingan · ${r.cancelled.count}`, formatPrice(r.cancelled.sum)] : null,
         r.voided.count ? [`Olib tashlangan taom · ${r.voided.count}`, formatPrice(r.voided.sum)] : null,
         r.openTabs ? ['Ochiq hisoblar', `${r.openTabs} ta`] : null]))),
@@ -1327,6 +1557,7 @@ function route() {
   if (tab === 'sozlamalar') return viewSettings();
   if (tab === 'hisobot' && can('reports.view')) return viewReport();
   if (tab === 'ishhaqi' && can('wages.view')) return viewWages();
+  if (tab === 'qarzlar' && can('debt.collect')) return viewDebts();
   return viewFloor();
 }
 

@@ -74,6 +74,18 @@ ${L.sums}
 ${foot(job, t.pending ? `<div class="small">Tasdiqlanmagan: ${num(t.pending)} so‘m (jamiga kirmagan)</div>` : '')}`;
 }
 
+// To'lov qatorlari: oddiy to'lov yoki qarz (to'liq yoki qisman)
+function payRows(p) {
+  if (p.debt) {
+    return `${p.paid ? `${row(`To‘landi (${esc(String(p.label || 'Naqd').replace(/ \+ qarz$/, ''))})`, num(p.paid))}${p.method === 'naqd' && p.change ? row('Qaytim', num(p.change)) : ''}` : ''}
+<div class="total">${row('QARZ', `${num(p.debt.amount)} so‘m`)}</div>
+<div class="small">Qarzdor: ${esc(`${p.debt.name || ''} ${p.debt.phone || ''}`.trim())}</div>
+<div class="c paid">${p.paid ? 'QISMAN TO‘LANDI' : 'QARZGA YOZILDI'}</div>`;
+  }
+  return `${row('To‘lov turi', esc(p.label || 'Naqd'))}${p.method === 'naqd' ? `${row('Berildi', num(p.received))}${row('Qaytim', num(p.change))}` : ''}
+<div class="c paid">✓ TO‘LANDI</div>`;
+}
+
 // To'lov qilindi — mijozga beriladigan chek
 function paidBody(job) {
   const t = job.data;
@@ -84,8 +96,7 @@ ${F.showWaiter && t.waiterName ? row('Ofitsiant', esc(t.waiterName)) : ''}${row(
 <hr>${L.html}<hr>
 ${L.sums}
 <div class="total">${row('JAMI', `${num(t.total)} so‘m`)}</div>
-${row('To‘lov turi', esc(p.label || 'Naqd'))}${p.method === 'naqd' ? `${row('Berildi', num(p.received))}${row('Qaytim', num(p.change))}` : ''}
-<div class="c paid">✓ TO‘LANDI</div>
+${payRows(p)}
 ${foot(job)}`;
 }
 
@@ -103,7 +114,7 @@ ${addr ? `<div class="small">Manzil: ${esc(addr)}</div>` : ''}${o.courierName ? 
 ${delivery ? `${row('Taomlar', num(o.total - fee))}${row(`Yetkazish${o.deliveryKm ? ` (${String(o.deliveryKm).replace('.', ',')} km)` : ''}`, num(fee))}` : ''}
 <div class="total">${row('JAMI', `${num(o.total)} so‘m`)}</div>
 ${o.comment ? `<div class="small">Izoh: ${esc(o.comment)}</div>` : ''}${!paid && o.statusLabel ? row('Holat', esc(o.statusLabel)) : ''}
-${paid ? `${row('To‘lov turi', esc(p.label || 'Naqd'))}${p.method === 'naqd' ? `${row('Berildi', num(p.received))}${row('Qaytim', num(p.change))}` : ''}<div class="c paid">✓ TO‘LANDI</div>` : ''}
+${paid ? payRows(p) : ''}
 ${foot(job)}`;
 }
 
@@ -118,9 +129,9 @@ function shiftBody(job) {
 ${row('Ochildi', esc(`${dt(r.openedAt)} ${r.openedByName || ''}`))}${r.status === 'closed' ? row('Yopildi', esc(`${dt(r.closedAt)} ${r.closedByName || ''}`)) : row('Hozir', dt(new Date().toISOString()))}<hr>
 <div class="total">${row('Savdo', num(r.revenue))}</div>${row('Cheklar', r.checks)}${row('O‘rtacha chek', num(r.avg))}${r.service ? row('Xizmat haqi', num(r.service)) : ''}${r.discount ? row(`Chegirmalar (${r.discountCount})`, `−${num(r.discount)}`) : ''}${r.delivery ? row('Yetkazishlar', r.delivery) : ''}
 ${sec('TO‘LOV TURLARI', (r.methods || []).map((m) => row(`${esc(m.label)} (${m.count})`, num(m.sum))).join('') || '<div class="small">To‘lov yo‘q</div>')}
-${sec('NAQD PUL', `${row('Boshlang‘ich', num(r.openingCash))}${row('Naqd savdo', num(r.cashSales))}${r.cashIn ? row('Kiritildi', `+${num(r.cashIn)}`) : ''}${r.cashOut ? row('Olindi', `−${num(r.cashOut)}`) : ''}<b>${row('Kassada bo‘lishi kerak', num(r.expectedCash))}</b>${r.countedCash !== null && r.countedCash !== undefined ? `${row('Sanaldi', num(r.countedCash))}<b>${row('Farq', `${r.diff > 0 ? '+' : ''}${num(r.diff)}`)}</b>` : ''}`)}
+${sec('NAQD PUL', `${row('Boshlang‘ich', num(r.openingCash))}${row('Naqd savdo', num(r.cashSales))}${r.debtPaid?.cash ? row('Qarz to‘lovlari', `+${num(r.debtPaid.cash)}`) : ''}${r.cashIn ? row('Kiritildi', `+${num(r.cashIn)}`) : ''}${r.cashOut ? row('Olindi', `−${num(r.cashOut)}`) : ''}<b>${row('Kassada bo‘lishi kerak', num(r.expectedCash))}</b>${r.countedCash !== null && r.countedCash !== undefined ? `${row('Sanaldi', num(r.countedCash))}<b>${row('Farq', `${r.diff > 0 ? '+' : ''}${num(r.diff)}`)}</b>` : ''}`)}
 ${(r.ops || []).length ? `<hr>${r.ops.map((o) => row(`${o.type === 'in' ? '+' : '−'} ${esc(o.reason || (o.type === 'in' ? 'kiritildi' : 'olindi'))}`, num(o.amount))).join('')}` : ''}
-${r.unpaid?.count || r.cancelled?.count || r.voided?.count ? `<hr>${r.unpaid?.count ? row(`To‘lovsiz yopilgan (${r.unpaid.count})`, num(r.unpaid.sum)) : ''}${r.cancelled?.count ? row(`Bekor qilingan (${r.cancelled.count})`, num(r.cancelled.sum)) : ''}${r.voided?.count ? row(`Olib tashlangan taom (${r.voided.count})`, num(r.voided.sum)) : ''}` : ''}
+${r.debtGiven?.count || r.debtPaid?.count ? `<hr>${r.debtGiven?.count ? row(`Qarzga berildi (${r.debtGiven.count})`, num(r.debtGiven.sum)) : ''}${r.debtPaid?.count ? row(`Qarz to‘lovlari (${r.debtPaid.count})`, num(r.debtPaid.sum)) : ''}` : ''}${r.unpaid?.count || r.cancelled?.count || r.voided?.count ? `<hr>${r.unpaid?.count ? row(`To‘lovsiz yopilgan (${r.unpaid.count})`, num(r.unpaid.sum)) : ''}${r.cancelled?.count ? row(`Bekor qilingan (${r.cancelled.count})`, num(r.cancelled.sum)) : ''}${r.voided?.count ? row(`Olib tashlangan taom (${r.voided.count})`, num(r.voided.sum)) : ''}` : ''}
 ${sec('OFITSIANTLAR', (r.waiters || []).map((w) => row(`${esc(w.name)} (${w.count})`, num(w.sum))).join(''))}
 ${sec('KO‘P SOTILGAN', (r.items || []).slice(0, 15).map((i) => row(`${String(i.qty).replace('.', ',')} × ${esc(i.name)}`, num(i.sum))).join(''))}
 ${r.openTabs ? `<hr><div class="c small">Ochiq hisoblar: ${r.openTabs} ta</div>` : ''}${r.note ? `<div class="small">Izoh: ${esc(r.note)}</div>` : ''}<hr>`;

@@ -24,13 +24,14 @@ import { startLogin, loginStatus, verifyLogin, reviewLogin, reviewLoginEnabled }
 import { sessionCookie, clearSessionCookie, currentCustomer, requireCustomer, assertSameOrigin } from './session.js';
 import { requireStaffAccess, need, needAny, permsFor } from './perms.js';
 import { UNITS, stockToday, listProducts, listSuppliers, saveProduct, saveSupplier, addReceipt, listMoves, deleteMove, saveCount, stockReport } from './stock.js';
-import { getShiftConfig, shiftReport, shiftBrief, openShift, cashOp, closeShift, listShifts, currentShiftId } from './shifts.js';
-import { kassaMethods } from './payments.js';
+import { getShiftConfig, shiftReport, shiftBrief, openShift, cashOp, closeShift, listShifts, currentShiftId, shiftForPayment } from './shifts.js';
+import { kassaMethods, methodLabels } from './payments.js';
+import { listDebts, payDebt, debtOfPhone } from './debts.js';
 import { getCustomer, createGuest, publicProfile, renameCustomer } from './customers.js';
 import {
   createOrder, listCustomerOrders, getCustomerOrder, cancelByCustomer,
   listOrdersForStaff, getOrderForStaff, tashkentDay, findTodayByNumber, acceptOrder, rejectOrder, createStaffOrder, reprintKitchen, cancelStaffOrder,
-  listDeliveries, takeDelivery, markDelivered, staffStats, voidOrderItem, payOrder, moveTabToTable, splitTab,
+  listDeliveries, takeDelivery, markDelivered, staffStats, voidOrderItem, payOrder, moveTabToTable, splitTab, cancelTab,
 } from './orders.js';
 import { wageReport, getWageRates, saveWageRates } from './wages.js';
 import { callWaiter, openCalls, ackCall } from './calls.js';
@@ -362,6 +363,21 @@ async function handleApiInner(request, { ip = 'unknown', scope = 'all' } = {}) {
         if (Number(url.searchParams.get('days')) > 1) need(staff, 'tab.history');
         return json({ items: await listOrdersForStaff(actor.id, { days: url.searchParams.get('days') }), today: tashkentDay() });
       }
+      // 📒 Qarzlar (nasiya): ro'yxat, telefon bo'yicha ochiq qarz, qarz to'lovi
+      if (route === '/api/kassa/debts' && method === 'GET') {
+        need(staff, 'debt.collect');
+        return json(await listDebts({ status: url.searchParams.get('status') || 'open', q: url.searchParams.get('q') || '' }));
+      }
+      if (route === '/api/kassa/debts/phone' && method === 'GET') {
+        if (!staff.can.has('tab.debt') && !staff.can.has('debt.collect')) need(staff, 'tab.debt');
+        return json(await debtOfPhone(url.searchParams.get('phone')));
+      }
+      if (parts[3] === 'debts' && parts[4] && parts[5] === 'pay' && method === 'POST') {
+        need(staff, 'debt.collect');
+        rateLimit(`debtpay:${staff.id}`, 60, 60_000);
+        const b = await readJson(request);
+        return json(await payDebt(parts[4], b, actor, { methods: await methodLabels(), shiftId: await shiftForPayment(actor) }));
+      }
       if (route === '/api/kassa/payments' && method === 'GET') {
         const { clickPassReady } = await import('./clickpass.js');
         return json({ items: await kassaMethods(), clickPass: clickPassReady(await getConfig()) });
@@ -451,8 +467,14 @@ async function handleApiInner(request, { ip = 'unknown', scope = 'all' } = {}) {
           need(staff, 'tab.move');
           return json(await moveTabToTable(parts[4], b.tableId, actor));
         }
+        if (parts[5] === 'cancel' && method === 'POST') {
+          need(staff, 'tab.cancel');
+          rateLimit(`tabcancel:${staff.id}`, 20, 60_000);
+          return json(await cancelTab(parts[4], actor, { reason: b.reason }));
+        }
         if (parts[5] === 'close' && method === 'POST') {
           need(staff, 'tab.pay');
+          if (b.payment?.debt) need(staff, 'tab.debt');
           const tab = await closeTab(parts[4], actor, { payment: b.payment || { method: 'naqd' } });
           // To'lov cheki asosiy printerdan o'zi chiqadi
           const print = b.print === false ? null : await printPaid(tab, actor, { request, staff }).catch((e) => ({ printed: false, reason: e.message }));
@@ -485,6 +507,7 @@ async function handleApiInner(request, { ip = 'unknown', scope = 'all' } = {}) {
           need(staff, 'tab.pay');
           need(staff, 'delivery.manage');
           if (b.accept !== false) need(staff, 'order.accept');
+          if (b.payment?.debt) need(staff, 'tab.debt');
           const order = await payOrder(parts[4], actor, b.payment);
           const print = b.print === false ? null : await printDoc('paidorder', order, actor, { request, staff }).catch((e) => ({ printed: false, reason: e.message }));
           return json({ order, print });

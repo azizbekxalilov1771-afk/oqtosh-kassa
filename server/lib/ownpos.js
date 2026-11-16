@@ -138,6 +138,12 @@ export async function saveItem(id, body) {
   return item;
 }
 
+// Butun menyuni yozish (tayyor to'plam, izohlar): tartib bo'limlar bo'yicha
+export async function replaceOwnMenu(menu) {
+  const categories = menu.categories || [];
+  return saveMenu({ ...menu, items: sortByCategories(menu.items || [], categories), categories });
+}
+
 const sortByCategories = (items, categories) => {
   const pos = new Map(categories.map((c, i) => [c, i]));
   return items.map((x, i) => [x, i]).sort((a, b) => (pos.get(a[0].category) ?? 999) - (pos.get(b[0].category) ?? 999) || a[1] - b[1]).map(([x]) => x);

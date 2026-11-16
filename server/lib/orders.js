@@ -702,6 +702,30 @@ export async function cancelStaffOrder(id, actor, { reason = '', causeId = '' } 
   return { order: staffView(id, order), mison };
 }
 
+// Butun chekni o'chirish (kassa): stoldagi hamma buyurtma bekor qilinadi (oshxonaga "BEKOR" cheki chiqadi),
+// tasdiqlanmaganlari rad etiladi, hisob to'lovsiz yopiladi va "o'chirilgan" deb belgilanadi. Sabab majburiy.
+export async function cancelTab(tabId, actor, { reason = '' } = {}) {
+  const why = str(reason, 200);
+  if (why.length < 3) throw new AppError(400, 'Chekni o‘chirish sababini yozing (masalan: noto‘g‘ri stolga yozildi).');
+  const tab = await getTabForStaff(String(tabId || ''));
+  if (tab.status !== 'open') throw new AppError(409, 'Bu hisob allaqachon yopilgan.');
+  const db = await needDb();
+  const raw = (await db.collection('tabs').doc(tab.id).get()).data() || {};
+  if (raw.pendingCharge) throw new AppError(409, 'Bu hisobdan Click orqali pul yechilgan — avval to‘lov bilan yoping, keyin Click kabinetida qaytaring.');
+  const mison = [];
+  for (const r of tab.rounds) {
+    if (r.status === 'yangi') await rejectOrder(r.id, why, actor);
+    else if (r.status === 'qabul') {
+      const x = await cancelStaffOrder(r.id, actor, { reason: why });
+      if (x.mison && !x.mison.ok) mison.push(`#${r.number}: ${x.mison.message || ''}`);
+    }
+  }
+  await closeTab(tab.id, actor);
+  const now = Date.now();
+  await db.collection('tabs').doc(tab.id).update({ cancelledAtMs: now, cancelReason: why, cancelledByName: actor.name || '', cancelledSum: tab.total || 0 });
+  return { tab: await getTabForStaff(tab.id), mison };
+}
+
 export async function rejectOrder(id, reason, actor) {
   const db = await needDb();
   const { ref, o } = await loadOrder(db, id);
@@ -871,6 +895,10 @@ export async function payOrder(id, actor, rawPayment) {
   const shiftId = await shiftForPayment(actor);
   const { takeQrPayment } = await import('./clickpass.js');
   payment = await takeQrPayment({ rawPayment, payment, pending: o.pendingCharge, txId: id, savePending: (r) => ref.update({ pendingCharge: r }) });
+  if (payment.debt) {
+    const { recordDebt } = await import('./debts.js');
+    payment = await recordDebt(payment, { kind: 'order', id, label: `Yetkazish #${o.number}` }, shiftId, actor);
+  }
   if (o.status === 'yangi') {
     await acceptOrder(id, {}, actor);
     ({ ref, o } = await loadOrder(db, id));

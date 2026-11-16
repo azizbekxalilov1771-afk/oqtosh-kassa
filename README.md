@@ -113,6 +113,8 @@ Klaviatura: F1 Kassa · F2 Ofitsiant · F3 Admin · F4 Owner · Ctrl+H bosh oyna
 
 **Sensorli POS monoblok (klaviaturasiz):** har bir oynaning chap chetidagi sariq tutqich (⋮) — Bosh oyna, bo‘limlar, to‘liq ekran, sahifani yangilash va tayyor yangilanish. Yangilanish tayyor bo‘lsa, tepada “Yangilash” tugmasi chiqadi; bosilmasa — tunda (03:00–06:00) o‘zi o‘rnatiladi.
 
+**Ekran klaviaturasi:** matn yoki raqam maydoniga barmoq bilan bosilganda pastda dasturning o‘z klaviaturasi chiqadi — lotin (o‘, g‘ tugmalari bilan), kirill (ў қ ғ ҳ bilan), belgilar va pul uchun raqam paneli (“000”, “C”). Modal oynalar ichida ham ishlaydi, oyna klaviatura ustiga ko‘tariladi; ⇅ — klaviaturani tepaga/pastga. Rejim: Sozlamalar → “Ekran klaviaturasi” yoki chetdagi menyu (⋮ → Klaviatura): barmoq bosganda / doim / o‘chiq. Sensorli ekran sichqoncha deb ko‘rinsa — “doim” rejimini tanlang.
+
 ## 5. Tuzilma
 
 | Fayl | Nima |

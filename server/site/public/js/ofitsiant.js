@@ -25,7 +25,7 @@ let hallKey = (() => {
   }
 })();
 let viewTimer = null;
-const view = { tab: 'hozir', filter: 'all', days: 1 };
+const view = { tab: 'stollar', filter: 'all', days: 1 };
 const live = { items: [], calls: [], stats: { acceptedToday: 0, sumToday: 0 }, today: '', loaded: false };
 
 const ago = (iso) => {
@@ -191,7 +191,7 @@ function done(order) {
     el('h2', { textContent: 'Mison kassasiga tushmadi' }),
     el('p', { textContent: order.misonError }),
     el('p', { textContent: 'Buyurtmani kassaga qo‘lda kiriting yoki administratorga ayting.' })) : null,
-  el('button', { type: 'button', className: 'btn btn-wide', textContent: 'Hozirgi buyurtmalarga', onclick: () => goTab('hozir') })].filter(Boolean));
+  el('button', { type: 'button', className: 'btn btn-wide', textContent: '← Stollarga', onclick: () => goTab('stollar') })].filter(Boolean));
 }
 
 const backBtn = () => el('button', { type: 'button', className: 'back', onclick: () => {
@@ -246,9 +246,9 @@ async function viewTab(id) {
 }
 
 /* ───────── Ro'yxatlar ───────── */
+// Ofitsiant ekrani: faqat "Stollar" (yangi buyurtma va chaqiruvlar shu yerda tepada) va "Chiqish"
 function listTab() {
-  const h = location.hash.replace(/^#/, '');
-  return ['hozir', 'stollar', 'profil'].includes(h) ? h : 'hozir';
+  return 'stollar';
 }
 function goTab(tab) {
   if (location.hash === `#${tab}`) viewList();
@@ -301,40 +301,61 @@ function orderCard(o, { showDay = false, quick = false } = {}) {
 }
 const emptyLine = (text) => el('li', { className: 'empty-line', textContent: text });
 
-function lookupForm() {
-  const number = el('input', { id: 'lookup-number', inputMode: 'numeric', maxLength: 5, placeholder: 'Raqam, masalan 12', autocomplete: 'off' });
-  const lookErr = el('p', { className: 'form-error', role: 'alert', hidden: true });
-  const form = el('form', { className: 'lookup', noValidate: true },
-    el('label', { className: 'visually-hidden', htmlFor: 'lookup-number', textContent: 'Buyurtma raqami' }), number,
-    el('button', { type: 'submit', className: 'btn btn-ghost', textContent: 'Ochish' }), lookErr);
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    lookErr.hidden = true;
+// 📷 Skaner (tepada): mijozning QR kodini kamera bilan skanerlash yoki kodini (buyurtma raqamini) yozish.
+// Kompyuterdagi USB/simsiz skaner ham klaviatura kabi shu maydonga yozib Enter bosadi.
+async function openByCode(text) {
+  const t = String(text || '').trim();
+  if (!t) throw new Error('Kodni yozing yoki skanerlang.');
+  if (/o=/.test(t)) {
     try {
-      const { order } = await api(`/api/staff/lookup?number=${encodeURIComponent(number.value.trim())}`);
-      viewOrder(order.id);
-    } catch (ex) {
-      if (gate(ex)) return;
-      lookErr.textContent = ex.message;
-      lookErr.hidden = false;
-    }
-  });
-  return form;
-}
-
-function scanButton() {
-  const b = el('button', { type: 'button', className: 'btn btn-wide scan-btn', textContent: '📷 QR kodni skanerlash' });
-  b.addEventListener('click', () => openScanner((text) => {
-    try {
-      const u = new URL(text, location.origin);
-      if (u.pathname.endsWith('/ofitsiant.html') && u.hash.includes('o=')) {
+      const u = new URL(t, location.origin);
+      if (u.hash.includes('o=')) {
         readScan(u.hash);
         return viewOrder(scanned.id, scanned.token);
       }
     } catch {}
-    alert('Bu buyurtma QR kodi emas.');
-  }));
-  return b;
+  }
+  const n = t.replace(/^#/, '');
+  if (!/^\d{1,5}$/.test(n)) throw new Error('Bu buyurtma kodi emas. Mijoz ekranidagi QR kodni yoki # raqamni kiriting.');
+  const { order } = await api(`/api/staff/lookup?number=${encodeURIComponent(n)}`);
+  return viewOrder(order.id);
+}
+function scanDialog() {
+  const dlg = el('dialog', { className: 'pay-dialog scan-dialog' });
+  const code = el('input', { id: 'scan-code', type: 'text', inputMode: 'text', autocomplete: 'off', spellcheck: false, placeholder: 'Buyurtma raqami (masalan 12) yoki QR kod', enterKeyHint: 'go' });
+  const err = el('p', { className: 'form-error', role: 'alert', hidden: true });
+  const fail = (m) => {
+    err.textContent = m;
+    err.hidden = false;
+  };
+  const go = async (text) => {
+    err.hidden = true;
+    try {
+      await openByCode(text);
+      dlg.close();
+    } catch (e) {
+      if (gate(e)) return dlg.close();
+      fail(e.message);
+      code.select();
+    }
+  };
+  const form = el('form', { className: 'scan-form', noValidate: true },
+    el('label', { className: 'visually-hidden', htmlFor: 'scan-code', textContent: 'Buyurtma kodi' }), code,
+    el('button', { type: 'submit', className: 'btn btn-accept', textContent: 'Ochish' }));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    go(code.value);
+  });
+  dlg.append(
+    el('div', { className: 'k-dlg-head' }, el('h2', { textContent: 'Buyurtmani olish' }),
+      el('button', { type: 'button', className: 'k-dlg-x', ariaLabel: 'Yopish', textContent: '×', onclick: () => dlg.close() })),
+    scannerSupported() ? el('button', { type: 'button', className: 'btn btn-wide scan-cam', textContent: '📷 Kamera bilan skanerlash', onclick: () => openScanner((text) => go(text)) }) : '',
+    el('p', { className: 'muted small', textContent: scannerSupported() ? 'yoki mijoz ekranidagi kodni yozing (skaner ham shu yerga yozadi):' : 'Mijoz ekranidagi kodni yozing yoki skaner bilan o‘qing:' }),
+    form, err);
+  dlg.addEventListener('close', () => dlg.remove());
+  document.body.append(dlg);
+  dlg.showModal();
+  setTimeout(() => code.focus(), 40);
 }
 
 // Mijoz chaqiruvlari: "Boraman" — mijoz ofitsiant kelayotganini ko'radi
@@ -358,40 +379,6 @@ function callsBox() {
       b);
   }));
   return box;
-}
-
-function viewCurrent() {
-  const stat = (n, label, cls = '') => el('div', { className: `staff-stat ${cls}` }, el('strong', { textContent: n }), el('span', { textContent: label }));
-  const stats = el('div', { className: 'staff-stats' });
-  const pendingBox = el('ul', { className: 'staff-list' });
-  const activeBox = el('ul', { className: 'staff-list' });
-  const pendingHead = el('h2', { className: 'list-head' });
-  const activeHead = el('h2', { className: 'list-head' });
-  const calls = callsBox();
-  function render() {
-    calls.paint();
-    const pending = live.items.filter((o) => o.status === 'yangi');
-    const active = live.items.filter(isActive);
-    stats.replaceChildren(stat(pending.length, 'yangi', pending.length ? 'is-wait' : ''), stat(active.length, 'jarayonda'), stat(live.stats.acceptedToday, 'bugun siz'));
-    pendingHead.textContent = `Yangi buyurtmalar${pending.length ? ` · ${pending.length}` : ''}`;
-    pendingBox.replaceChildren(...(pending.length ? pending.map((o) => orderCard(o, { quick: true })) : [emptyLine(live.loaded ? 'Hozircha yangi buyurtma yo‘q.' : 'Yuklanmoqda…')]));
-    activeHead.textContent = `Jarayonda${active.length ? ` · ${active.length}` : ''}`;
-    activeBox.replaceChildren(...(active.length ? active.map((o) => orderCard(o)) : [emptyLine('Ochiq stollarda qabul qilingan buyurtma yo‘q.')]));
-    paintTabs('hozir');
-  }
-  listeners.clear();
-  listeners.add(render);
-  app.replaceChildren(
-    el('div', { className: 'view-head' }, el('h1', { textContent: 'Hozirgi buyurtmalar' })),
-    calls,
-    stats,
-    pendingHead, pendingBox,
-    el('div', { className: 'scan-card' },
-      scannerSupported() ? scanButton() : el('p', { className: 'scan-title', textContent: 'Mijozning QR kodini telefon kamerasi bilan skanerlang' }),
-      el('p', { className: 'muted small', textContent: 'yoki buyurtma raqamini yozing:' }),
-      lookupForm()),
-    activeHead, activeBox);
-  render();
 }
 
 async function viewTables() {
@@ -432,29 +419,24 @@ async function viewTables() {
     viewTimer = setTimeout(load, nextDelay());
     viewReload = () => box.isConnected && load();
   }
+  // tepada: mijoz chaqiruvlari va tasdiqlanmagan yangi buyurtmalar (bo'lsa)
+  const calls = callsBox();
+  const pendingBox = el('ul', { className: 'staff-list waiter-pending' });
+  const alerts = el('div', { className: 'waiter-alerts' }, calls, pendingBox);
+  const paintAlerts = () => {
+    calls.paint();
+    const pending = live.items.filter((o) => o.status === 'yangi');
+    pendingBox.replaceChildren(...pending.map((o) => orderCard(o, { quick: true })));
+    alerts.hidden = !pending.length && !live.calls.length;
+    paintTabs('stollar');
+  };
   listeners.clear();
-  listeners.add(() => paintTabs('stollar'));
-  app.replaceChildren(el('div', { className: 'view-head view-head-row' }, el('h1', { textContent: 'Stollar' }),
+  listeners.add(paintAlerts);
+  paintAlerts();
+  app.replaceChildren(alerts, el('div', { className: 'view-head view-head-row' }, el('h1', { textContent: 'Stollar' }),
     can('order.create') ? el('button', { type: 'button', className: 'btn btn-small', textContent: '🥡 Saboy buyurtma', onclick: () => openPos({ title: 'Saboy (olib ketish)', target: 'saboy', onDone: (r) => { poll(); viewTab(r.tabId); } }) }) : ''), box);
   box.append(el('p', { className: 'muted', textContent: 'Yuklanmoqda…' }));
   await load();
-}
-
-function viewStaffProfile() {
-  listeners.clear();
-  listeners.add(() => paintTabs('profil'));
-  app.replaceChildren(
-    el('div', { className: 'view-head' }, el('h1', { textContent: 'Profil' })),
-    el('div', { className: 'staff-profile reveal' },
-      el('p', { className: 'staff-profile-name', textContent: profile.name || 'Ofitsiant' }),
-      profile.phone ? el('p', { className: 'muted', textContent: profile.phone }) : '',
-      el('div', { className: 'staff-stats' },
-        el('div', { className: 'staff-stat' }, el('strong', { textContent: live.stats.acceptedToday }), el('span', { textContent: 'bugun qabul qildingiz' })),
-        el('div', { className: 'staff-stat' }, el('strong', { textContent: formatPrice(live.stats.sumToday) }), el('span', { textContent: 'bugungi summa' })))),
-    el('div', { className: 'notice' },
-      el('strong', { textContent: 'Bildirishnomalar: ' }),
-      'yuqoridagi 🔔 tugmasi ovozni yoqadi. Telefon qulflangan bo‘lsa ham xabar Telegram’ga keladi. Brauzer menyusidan (⋮) “Bosh ekranga qo‘shish”ni tanlang — sahifa ilova kabi ochiladi.'),
-    el('button', { type: 'button', className: 'btn btn-ghost btn-wide', textContent: 'Chiqish', onclick: logout }));
 }
 
 function viewList() {
@@ -463,9 +445,7 @@ function viewList() {
   view.tab = tab;
   paintTabs(tab);
   window.scrollTo(0, 0);
-  if (tab === 'stollar') return viewTables();
-  if (tab === 'profil') return viewStaffProfile();
-  return viewCurrent();
+  return viewTables();
 }
 
 /* ───────── Kirish va ruxsat ───────── */
@@ -495,6 +475,7 @@ async function logout() {
   profile = null;
   clearTimeout(pollTimer);
   $('#staff-tabs').hidden = true;
+  $('#scan-top').hidden = true;
   $('#staff-name').textContent = '';
   showLogin();
 }
@@ -507,6 +488,7 @@ function start() {
   $('#staff-name').textContent = profile.name || '';
   if (!can('page.ofitsiant')) return gate({ status: 403, message: 'Sizga ofitsiant sahifasi ochilmagan.' });
   if (!$('.sound-toggle')) $('#staff-name').after(soundToggle());
+  $('#scan-top').hidden = !can('order.accept');
   poll();
   if (scanned) return viewOrder(scanned.id, scanned.token);
   viewList();
@@ -515,6 +497,7 @@ function start() {
 function showLogin() {
   stopView();
   $('#staff-tabs').hidden = true;
+  $('#scan-top').hidden = true;
   mountPinLogin(app, {
     title: 'Ofitsiant',
     logo: siteInfo.logo || '/logo.jpg',
@@ -525,6 +508,9 @@ function showLogin() {
     },
   });
 }
+
+$('#scan-top').addEventListener('click', scanDialog);
+$('#staff-logout').addEventListener('click', logout);
 
 window.addEventListener('hashchange', () => {
   readScan();

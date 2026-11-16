@@ -9,6 +9,7 @@ import { liveItems, voidedItems, movedItems } from './items.js';
 import { shiftForPayment, currentShiftId } from './shifts.js';
 import { str } from './validate.js';
 import { methodLabels } from './payments.js';
+import { debtPayment, recordDebt } from './debts.js';
 import { misonLive, ourExternalId } from './mison-live.js';
 
 // Stol hisobi ("shot"): bitta stolni bitta mijoz egallaydi, keyingi buyurtmalari shu hisobga qo'shiladi.
@@ -328,6 +329,7 @@ export const PAY_METHODS = { naqd: 'Naqd', karta: 'Karta (terminal)', click: 'Cl
 // methods: { key: label } — admin yoqqan to'lov turlari (bo'lmasa — standart ro'yxat)
 export function paymentOf(raw, total, actor, methods = PAY_METHODS) {
   if (!raw) return null;
+  if (raw.debt) return debtPayment(raw, total, actor, methods); // hammasi yoki bir qismi qarzga
   if (raw.method && !methods[raw.method]) throw new AppError(400, 'Bu to‘lov turi o‘chirilgan. Sahifani yangilang.');
   const method = methods[raw.method] ? raw.method : Object.keys(methods)[0] || 'naqd';
   const received = raw.received === undefined || raw.received === '' || raw.received === null ? total : Math.round(Number(String(raw.received).replace(/\s/g, '')));
@@ -350,6 +352,7 @@ export async function closeTab(id, actor, { payment: rawPayment } = {}) {
   if (payment) {
     const { takeQrPayment } = await import('./clickpass.js');
     payment = await takeQrPayment({ rawPayment, payment, pending: tab.pendingCharge, txId: id, savePending: (r) => ref.update({ pendingCharge: r }) });
+    payment = await recordDebt(payment, { kind: 'tab', id, label: (tab.tableLabels || []).join(' + ') || (tab.kind === 'saboy' ? 'Saboy' : 'Stol') }, shiftId, actor);
   }
   for (const o of orders.filter((x) => x.status === 'yangi')) {
     await db.collection('orders').doc(o.id).update({ status: 'bekor', rejectReason: 'Stol yopildi', updatedAtMs: Date.now() });

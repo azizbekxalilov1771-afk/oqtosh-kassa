@@ -4,6 +4,7 @@ import { getDb } from './firebase.js';
 import { readSetting, writeSetting } from './settings.js';
 import { str } from './validate.js';
 import { liveItems } from './items.js';
+import { debtPaymentsOfShift } from './debts.js';
 
 // Smena (kassa kuni): kassir ochadi (boshlang'ich naqd), kun davomida to'lovlar shu smenaga yoziladi,
 // kassaga pul kiritish/olish qayd etiladi, oxirida naqd sanaladi va Z-hisobot bilan yopiladi.
@@ -143,14 +144,25 @@ export async function shiftReport(id) {
   let discount = 0;
   let discountCount = 0;
   const unpaid = { count: 0, sum: 0 };
+  const debtGiven = { count: 0, sum: 0 };
+  // qarzli to'lov: sotuv summasi to'liq tushum, kassaga esa faqat hozir berilgan qism (p.paid) tushadi
   const pay = (p) => {
     checks += 1;
     revenue += p.amount || 0;
-    if (p.method === 'naqd') cashSales += p.amount || 0;
-    add(methods, p.method || 'naqd', (c) => ({ label: METHOD_LABEL[p.method] || p.label || p.method, count: c.count + 1, sum: c.sum + (p.amount || 0) }));
+    const debt = p.debt?.amount || 0;
+    const got = (p.amount || 0) - debt;
+    if (debt) {
+      debtGiven.count += 1;
+      debtGiven.sum += debt;
+      add(methods, 'qarz', (c) => ({ label: 'Qarzga', count: c.count + 1, sum: c.sum + debt }));
+    }
+    if (!got) return;
+    if (p.method === 'naqd') cashSales += got;
+    add(methods, p.method || 'naqd', (c) => ({ label: METHOD_LABEL[p.method] || String(p.label || p.method).replace(/ \+ qarz$/, ''), count: c.count + 1, sum: c.sum + got }));
   };
   for (const t of tabs) {
     if (!t.payment) {
+      if (t.cancelledAtMs) continue; // o'chirilgan chek — buyurtmalari "bekor qilingan"da ko'rinadi
       unpaid.count += 1;
       unpaid.sum += t.total || 0;
       continue;
@@ -179,10 +191,15 @@ export async function shiftReport(id) {
   const cancelled = orders.filter((o) => o.status === 'bekor' && o.cancelledById && inWindow(o.cancelledAtMs || 0));
   const voids = orders.flatMap((o) => (o.items || []).flatMap((i) => (i.voids || []).filter((v) => inWindow(v.atMs || 0)).map((v) => ({ name: i.name, qty: v.qty, sum: v.sum || 0, reason: v.reason || '', byName: v.byName || '', number: o.number }))));
 
+  // shu smenada olingan qarz to'lovlari (eski qarzlar): naqd qismi kassadagi pulga qo'shiladi
+  const debtPays = await debtPaymentsOfShift(sid);
+  const debtPaid = { count: debtPays.length, sum: debtPays.reduce((a, x) => a + (x.amount || 0), 0), cash: debtPays.filter((x) => x.method === 'naqd').reduce((a, x) => a + (x.amount || 0), 0) };
+  const debtByMethod = new Map();
+  for (const x of debtPays) add(debtByMethod, x.method, (c) => ({ label: x.label || METHOD_LABEL[x.method] || x.method, count: c.count + 1, sum: c.sum + (x.amount || 0) }));
   const ops = (s.ops || []).map((o) => ({ ...o, at: iso(o.atMs) }));
   const cashIn = ops.filter((o) => o.type === 'in').reduce((a, o) => a + o.amount, 0);
   const cashOut = ops.filter((o) => o.type === 'out').reduce((a, o) => a + o.amount, 0);
-  const expectedCash = (s.openingCash || 0) + cashSales + cashIn - cashOut;
+  const expectedCash = (s.openingCash || 0) + cashSales + debtPaid.cash + cashIn - cashOut;
   const sortSum = (m) => [...m.entries()].map(([k, v]) => ({ key: k, ...v })).sort((a, b) => b.sum - a.sum);
 
   return {
@@ -194,6 +211,8 @@ export async function shiftReport(id) {
     waiters: sortSum(waiters).map((w) => ({ name: w.key, count: w.count, sum: w.sum })),
     items: sortSum(sold).slice(0, 25).map((i) => ({ name: i.key, qty: Math.round(i.count * 1000) / 1000, sum: i.sum })),
     unpaid,
+    debtGiven,
+    debtPaid: { ...debtPaid, methods: sortSum(debtByMethod).map((m) => ({ method: m.key, label: m.label, count: m.count, sum: m.sum })) },
     cancelled: { count: cancelled.length, sum: cancelled.reduce((a, o) => a + (o.total || 0), 0), list: cancelled.slice(0, 30).map((o) => ({ number: o.number, sum: o.total || 0, reason: o.cancelReason || '', byName: o.cancelledByName || '' })) },
     voided: { count: voids.length, sum: voids.reduce((a, v) => a + v.sum, 0), list: voids.slice(0, 40) },
     openTabs: openSnap ? openSnap.docs.length : 0,

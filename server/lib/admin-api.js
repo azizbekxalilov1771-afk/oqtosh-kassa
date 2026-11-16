@@ -448,6 +448,23 @@ function createAdminApiInner({ verifier: base = firebaseVerify } = {}) {
           return done('own.item.delete', id, r);
         }
       }
+      // 🥤 Tayyor ichimliklar to'plami va ✍ barcha taomlarga izoh
+      if (path === '/own/preset' && method === 'GET') {
+        const { presetSummary } = await import('./menu-presets.js');
+        return json(presetSummary());
+      }
+      if (path === '/own/preset/drinks' && method === 'POST') {
+        const { addDrinksPreset } = await import('./menu-presets.js');
+        const r = await addDrinksPreset({ skipKitchen: body?.skipKitchen !== false });
+        ownChanged();
+        return done('own.preset.drinks', `${r.added} qo‘shildi, ${r.skipped} bor edi`, r);
+      }
+      if (path === '/own/describe' && method === 'POST') {
+        const { fillDescriptions } = await import('./menu-presets.js');
+        const r = await fillDescriptions({ overwrite: Boolean(body?.overwrite) });
+        ownChanged();
+        return done('own.describe', `${r.filled} ta izoh (AI ${r.ai}, lug‘at ${r.dict})`, r);
+      }
       if (path === '/own/categories' && method === 'PUT') {
         const r = await saveCategories(body || {});
         ownChanged();
