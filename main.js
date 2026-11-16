@@ -14,6 +14,7 @@ const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
 const { Agent, pair, VERSION: AGENT_VERSION } = require('./agent/core');
 const { makeRawPrint } = require('./agent/raw-win');
+const cams = require('./agent/cameras');
 const { ServerHost } = require('./server-host');
 const defaults = require('./config.json');
 
@@ -388,6 +389,37 @@ function startAgent() {
     if (Notification.isSupported()) new Notification({ title: 'Printer dasturi uzildi', body: 'Admin panel → Tayyorlash joylari → “Oqtosh Kassa dasturini ulash” kodini qayta kiriting.', icon: ICON }).show();
   });
   agent.start();
+  if (cameraStore().state().nvrs.length) syncCamerasSoon(15_000);
+}
+
+/* ───────── kameralar (Hikvision / HiLook videoregistratorlari) ─────────
+   Topish, ulash, rasm va "kabina = stol" shu kompyuterda (agent/cameras.js). Parollar safeStorage bilan shifrlanadi.
+   Saytga (owner hisobotlari uchun) faqat kamera nomlari va qaysi stolga qaragani yuboriladi — IP, parol, rasm emas. */
+let camStore = null;
+let camSyncTimer = null;
+const camEnc = (s) => (safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(s) : Buffer.from(s, 'utf8')).toString('base64');
+const camDec = (s) => {
+  const b = Buffer.from(String(s || ''), 'base64');
+  try {
+    return safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(b) : b.toString('utf8');
+  } catch {
+    return '';
+  }
+};
+function cameraStore() {
+  camStore ||= new cams.CameraStore({ file: path.join(userDir, 'cameras.json'), encrypt: camEnc, decrypt: camDec, onChange: () => syncCamerasSoon() });
+  return camStore;
+}
+function syncCamerasSoon(ms = 2000) {
+  clearTimeout(camSyncTimer);
+  camSyncTimer = setTimeout(async () => {
+    if (!agent) return;
+    try {
+      await agent.api('POST', '/api/print-agent/cameras', { cameras: cameraStore().summary() });
+    } catch (e) {
+      pushLog({ at: Date.now(), text: `Kameralar saytga yuborilmadi: ${e.message}`, kind: 'warn' });
+    }
+  }, ms);
 }
 
 // Brauzer cheki (HTML) — tanlangan printerga oynasiz
@@ -457,6 +489,48 @@ ipcMain.handle('oq:settings:set', async (e, patch) => {
   if (siteChanged && agent) startAgent();
   if (oskChanged) broadcastOsk();
   return settings;
+});
+ipcMain.handle('oq:cam:state', (e) => {
+  guard(e);
+  return cameraStore().state();
+});
+ipcMain.handle('oq:cam:discover', async (e) => {
+  guard(e);
+  const have = cameraStore().state().nvrs;
+  const list = await cams.discover();
+  return list.map((d) => ({ ...d, added: have.some((n) => n.ip === d.ip || (d.serial && n.serial === d.serial)) }));
+});
+ipcMain.handle('oq:cam:connect', async (e, o) => {
+  guard(e);
+  const r = await cameraStore().connect({ ip: o?.ip, port: o?.port, user: o?.user, pass: o?.pass });
+  pushLog({ at: Date.now(), text: `Videoregistrator ulandi: ${r.name || r.model} (${r.channels.length} kamera)`, kind: 'ok' });
+  return r;
+});
+ipcMain.handle('oq:cam:refresh', (e, id) => {
+  guard(e);
+  return cameraStore().refresh(String(id));
+});
+ipcMain.handle('oq:cam:snapshot', async (e, id, ch) => {
+  guard(e);
+  const jpg = await cameraStore().snapshot(String(id), Number(ch));
+  return `data:image/jpeg;base64,${jpg.toString('base64')}`;
+});
+ipcMain.handle('oq:cam:place', (e, id, ch, place) => {
+  guard(e);
+  return cameraStore().setPlace(String(id), Number(ch), { place: place?.place || '', tableId: place?.tableId || '', label: place?.label || '' });
+});
+ipcMain.handle('oq:cam:remove', (e, id) => {
+  guard(e);
+  cameraStore().remove(String(id));
+  return true;
+});
+// Stollar ro'yxati (kabina = stol) — saytning ochiq /api/tables manzilidan
+ipcMain.handle('oq:cam:tables', async (e) => {
+  guard(e);
+  const res = await fetch(`${siteUrl()}/api/tables`, { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`Stollar olinmadi (HTTP ${res.status})`);
+  const d = await res.json();
+  return (d.halls || []).map((h) => ({ id: String(h.id), name: String(h.name || ''), tables: (h.tables || []).map((t) => ({ id: String(t.id), name: String(t.name || ''), label: String(t.label || t.name || '') })) }));
 });
 ipcMain.handle('oq:pair', async (e, code) => {
   guard(e);

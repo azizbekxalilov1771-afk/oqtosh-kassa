@@ -91,3 +91,33 @@ input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: v
 .facts a, .facts .btn-link { color: var(--gold); }
 .server [hidden], .srv-step[hidden], .err[hidden], .ok-text[hidden] { display: none; }
 .ok-inline { color: var(--ok); }
+
+/* ───────── kameralar ───────── */
+.cams .small { font-size: 13px; }
+.cam-found { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.cam-found li { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 12px; background: var(--surface-2); }
+.cam-found .cname { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cam-found .done { color: var(--ok); font-size: 13px; font-weight: 600; }
+.cam-form { margin-top: 12px; padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface-2); }
+.cam-form-title { margin: 0 0 10px; font-weight: 600; }
+.cam-fields { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .6fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.cam-fields label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.cam-fields input { color: var(--ink); background: var(--surface); }
+.cam-nvrs { display: grid; gap: 16px; margin-top: 14px; }
+.cam-nvrs:empty { display: none; }
+.cam-nvr { border-top: 1px solid var(--line); padding-top: 14px; }
+.cam-nvr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.cam-nvr-head b { font-size: 15px; }
+.cam-nvr-head .grow { flex: 1; }
+.cam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.cam-ch { display: grid; gap: 8px; padding: 8px; border-radius: 14px; background: var(--surface-2); border: 1px solid transparent; }
+.cam-ch.is-linked { border-color: rgb(229 163 62 / .55); }
+.cam-shot { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #0e0e10; border: 0; padding: 0; cursor: pointer; display: grid; place-items: center; color: var(--muted); font-size: 12px; text-align: center; }
+.cam-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cam-shot span { padding: 8px; }
+.cam-ch .cn { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; }
+.cam-ch .cn b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-ch .cn small { flex: none; font-size: 12px; color: var(--muted); }
+.cam-ch .cn small.off { color: var(--bad); }
+.cam-ch select { width: 100%; min-height: 38px; padding: 6px 10px; }
+@media (max-width: 760px) { .cam-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }

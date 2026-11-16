@@ -115,6 +115,8 @@ Klaviatura: F1 Kassa · F2 Ofitsiant · F3 Admin · F4 Owner · Ctrl+H bosh oyna
 
 **Ekran klaviaturasi:** matn yoki raqam maydoniga barmoq bilan bosilganda pastda dasturning o‘z klaviaturasi chiqadi — lotin (o‘, g‘ tugmalari bilan), kirill (ў қ ғ ҳ bilan), belgilar va pul uchun raqam paneli (“000”, “C”). Modal oynalar ichida ham ishlaydi, oyna klaviatura ustiga ko‘tariladi; ⇅ — klaviaturani tepaga/pastga. Rejim: Sozlamalar → “Ekran klaviaturasi” yoki chetdagi menyu (⋮ → Klaviatura): barmoq bosganda / doim / o‘chiq. Sensorli ekran sichqoncha deb ko‘rinsa — “doim” rejimini tanlang.
 
+**Kameralar — kabina nazorati (1-bosqich):** Bosh oyna → “Kameralar”. “Videoregistratorlarni qidirish” Hikvision va HiLook videoregistratorlarini restoran tarmog‘idan o‘zi topadi (SADP + 8000-port; topilmasa — IP qo‘lda). Videoregistratorning o‘z foydalanuvchisi bilan ulanadi (Hik-Connect paroli emas; “Remote Live View” ruxsati yetarli), kameralar rasmi bilan chiqadi, har birini kabinaga (stolga) yoki “Kassa oldi”ga biriktirasiz. Parollar shu kompyuterda shifrlangan; saytga faqat kamera nomlari va qaysi stolga qaragani boradi. Keyingi bosqich — AI kabinadagi mehmonlarni hisob bilan solishtiradi.
+
 ## 5. Tuzilma
 
 | Fayl | Nima |

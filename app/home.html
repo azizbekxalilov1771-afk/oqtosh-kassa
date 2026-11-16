@@ -111,6 +111,32 @@
       </section>
     </div>
 
+    <section class="card cams" id="cams" data-main aria-labelledby="cam-title">
+      <div class="card-head">
+        <h2 id="cam-title">Kameralar — kabina nazorati</h2>
+        <span class="pill" id="cam-pill">ulanmagan</span>
+      </div>
+      <p>Hikvision va HiLook videoregistratorlarini ulang va har bir kamerani o‘z kabinasiga (stoliga) biriktiring. Video internetga chiqmaydi — rasmlar faqat shu kompyuterda ko‘riladi, saytga faqat kamera nomi va qaysi stolga qaragani yuboriladi.</p>
+      <div class="row wrap tight">
+        <button type="button" class="btn ghost small" id="cam-find">🔎 Videoregistratorlarni qidirish</button>
+        <button type="button" class="btn-link" id="cam-manual">IP manzilni qo‘lda yozish</button>
+      </div>
+      <ul class="cam-found" id="cam-found" hidden></ul>
+      <form class="cam-form" id="cam-form" hidden autocomplete="off">
+        <p class="cam-form-title" id="cam-form-title"></p>
+        <div class="cam-fields">
+          <label>IP manzil<input name="ip" inputmode="decimal" placeholder="192.168.1.64" spellcheck="false"></label>
+          <label>Port<input name="port" inputmode="numeric" value="80"></label>
+          <label>Login<input name="user" placeholder="oqtosh" spellcheck="false" autocapitalize="off"></label>
+          <label>Parol<input name="pass" type="password"></label>
+        </div>
+        <p class="muted small">Videoregistratorning o‘z foydalanuvchisi — Hik-Connect / HiLook ilovasi paroli emas. Faqat “Remote Live View” ruxsati yetarli. 5 marta noto‘g‘ri yozilsa, videoregistrator 30 daqiqaga bloklaydi.</p>
+        <div class="row"><button type="submit" class="btn">Ulash</button><button type="button" class="btn-link" id="cam-cancel">Bekor qilish</button></div>
+      </form>
+      <p class="err" id="cam-err" role="alert" hidden></p>
+      <div class="cam-nvrs" id="cam-nvrs"></div>
+    </section>
+
     <details class="card settings">
       <summary><h2>Sozlamalar</h2></summary>
       <form id="settings">

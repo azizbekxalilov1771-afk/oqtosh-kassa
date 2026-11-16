@@ -39,6 +39,7 @@ import { deleteOwnAccount } from './guests.js';
 import { touchDevice, printInfo, requestPrint, stationJobs, finishJob, printPaid, printDoc } from './printing.js';
 import { getWorkplace, isWorkplaceIp, passwordLogin, pinLogin, PW_SESSION_HOURS } from './workplace.js';
 import { requireAgent, agentHello, agentJobs, agentFinish, pairWithCode } from './agent.js';
+import { saveAgentCameras } from './cameras.js';
 import { ownerReport } from './owner.js';
 import './kitchen.js'; // printer IP→MAC ko'chishida sozlamalarni yangilash uchun
 
@@ -146,6 +147,7 @@ async function handleApiInner(request, { ip = 'unknown', scope = 'all' } = {}) {
       await requireAgent(request);
       if (route === '/api/print-agent/hello' && method === 'POST') return json(await agentHello(await readJson(request, 200_000)));
       if (route === '/api/print-agent/jobs' && method === 'GET') return json(await agentJobs());
+      if (route === '/api/print-agent/cameras' && method === 'POST') return json(await saveAgentCameras(await readJson(request, 100_000)));
       if (parts[3] === 'jobs' && parts[4] && method === 'POST') return json(await agentFinish(parts[4], await readJson(request)));
       return json({ error: 'Topilmadi' }, 404);
     }

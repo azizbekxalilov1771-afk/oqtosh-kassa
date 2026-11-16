@@ -302,3 +302,171 @@ OqDesktop.server.onLog((l) => addLog({ ...l, text: `[server] ${l.text}` }));
 
 setInterval(paint, 30_000);
 init();
+
+/* ───────── kameralar (videoregistratorlar) ───────── */
+const cam = { nvrs: [], tables: null, shots: new Map() };
+const camErr = (t) => {
+  $('#cam-err').textContent = t || '';
+  $('#cam-err').hidden = !t;
+};
+function camPill() {
+  const all = cam.nvrs.flatMap((n) => n.channels);
+  const linked = all.filter((c) => c.place === 'table').length;
+  $('#cam-pill').textContent = all.length ? `${all.length} kamera · ${linked} kabina biriktirilgan` : 'ulanmagan';
+  $('#cam-pill').className = `pill ${all.length ? (linked ? 'ok' : 'warn') : ''}`;
+}
+async function camTables() {
+  if (cam.tables) return cam.tables;
+  try {
+    cam.tables = await OqDesktop.cameras.tables();
+  } catch (x) {
+    camErr(`Stollar ro‘yxati olinmadi: ${errText(x)}`);
+    return [];
+  }
+  return cam.tables;
+}
+function camOpenForm(d) {
+  const f = $('#cam-form');
+  f.hidden = false;
+  f.ip.value = d?.ip || '';
+  f.port.value = String(d?.httpPort || 80);
+  f.pass.value = '';
+  $('#cam-form-title').textContent = d ? `${d.model || 'Videoregistrator'} · ${d.ip}` : 'Videoregistratorning IP manzili (videoregistrator monitorida: Menyu → Configuration → Network)';
+  (d ? f.user : f.ip).focus();
+}
+$('#cam-manual').addEventListener('click', () => camOpenForm(null));
+$('#cam-cancel').addEventListener('click', () => {
+  $('#cam-form').hidden = true;
+  $('#cam-form').pass.value = '';
+});
+$('#cam-find').addEventListener('click', async (e) => {
+  const b = e.currentTarget;
+  b.disabled = true;
+  b.textContent = 'Qidirilmoqda…';
+  camErr('');
+  const ul = $('#cam-found');
+  try {
+    const list = await OqDesktop.cameras.discover();
+    ul.hidden = false;
+    ul.replaceChildren(...(list.length ? list.map((d) => el('li', {},
+      el('span', { className: 'ico', 'aria-hidden': 'true' }, '📹'),
+      el('span', { className: 'cname' }, el('b', {}, d.model || 'Kamera / videoregistrator'), ` · ${d.ip}`, d.channels ? el('small', { className: 'muted' }, ` · ${d.channels} kanal`) : '', d.activated === false ? el('small', { className: 'err-text' }, ' · faollashtirilmagan (SADP Tool bilan parol qo‘ying)') : ''),
+      d.added ? el('span', { className: 'done' }, 'ulangan ✓') : el('button', { type: 'button', className: 'btn small', onclick: () => camOpenForm(d) }, 'Ulash'))) : [el('li', { className: 'muted' }, 'Topilmadi. Kompyuter videoregistrator bilan bitta routerga ulanganini tekshiring yoki IP manzilni qo‘lda yozing.')]));
+  } catch (x) {
+    camErr(errText(x));
+  } finally {
+    b.disabled = false;
+    b.textContent = '🔎 Videoregistratorlarni qidirish';
+  }
+});
+$('#cam-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const b = f.querySelector('button[type=submit]');
+  b.disabled = true;
+  b.textContent = 'Ulanmoqda…';
+  camErr('');
+  try {
+    const n = await OqDesktop.cameras.connect({ ip: f.ip.value, port: f.port.value, user: f.user.value, pass: f.pass.value });
+    f.pass.value = '';
+    f.hidden = true;
+    for (const li of $('#cam-found').children) if (li.textContent.includes(` · ${n.ip}`)) li.querySelector('button')?.replaceWith(el('span', { className: 'done' }, 'ulangan ✓'));
+    await camLoad();
+  } catch (x) {
+    camErr(errText(x));
+  } finally {
+    b.disabled = false;
+    b.textContent = 'Ulash';
+  }
+});
+
+function camOptions(c, tables) {
+  const opt = (value, label) => {
+    const o = el('option', { value }, label);
+    if (value === (c.place === 'table' ? `t:${c.tableId}` : c.place || '')) o.selected = true;
+    return o;
+  };
+  return [
+    opt('', '— biriktirilmagan —'), opt('kassa', 'Kassa oldi'), opt('zal', 'Zal (umumiy)'),
+    ...tables.map((h) => {
+      const g = el('optgroup', { label: h.name || 'Zal' });
+      g.append(...h.tables.map((t) => opt(`t:${t.id}`, t.name || t.label)));
+      return g;
+    }),
+  ];
+}
+async function camShot(n, c, box) {
+  box.replaceChildren(el('span', {}, 'rasm olinmoqda…'));
+  try {
+    const src = await OqDesktop.cameras.snapshot(n.id, c.ch);
+    cam.shots.set(`${n.id}:${c.ch}`, src);
+    box.replaceChildren(el('img', { src, alt: c.name }));
+  } catch (x) {
+    box.replaceChildren(el('span', {}, errText(x)));
+  }
+}
+async function camRender() {
+  camPill();
+  const tables = cam.nvrs.length ? await camTables() : [];
+  const queue = [];
+  $('#cam-nvrs').replaceChildren(...cam.nvrs.map((n) => el('div', { className: 'cam-nvr' },
+    el('div', { className: 'cam-nvr-head' },
+      el('b', {}, n.name || n.model || 'Videoregistrator'),
+      el('span', { className: 'muted' }, [n.model, n.ip, `${n.channels.length} kamera`].filter(Boolean).join(' · ')),
+      n.error ? el('span', { className: 'err-text' }, n.error) : '',
+      el('span', { className: 'grow' }),
+      el('button', { type: 'button', className: 'btn ghost small', onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        camErr('');
+        try {
+          await OqDesktop.cameras.refresh(n.id);
+        } catch (x) {
+          camErr(errText(x));
+        }
+        await camLoad();
+      } }, '↻ Yangilash'),
+      el('button', { type: 'button', className: 'btn-link danger', onclick: async () => {
+        if (!confirm(`${n.name || n.model || 'Videoregistrator'} o‘chirilsinmi? Kameralarning stolga biriktirilishi ham o‘chadi.`)) return;
+        await OqDesktop.cameras.remove(n.id);
+        await camLoad();
+      } }, 'O‘chirish')),
+    el('div', { className: 'cam-grid' }, ...n.channels.map((c) => {
+      const box = el('button', { type: 'button', className: 'cam-shot', title: 'Rasmni yangilash' });
+      const sel = el('select', { 'aria-label': `${c.name} — qayerga qaraydi` }, ...camOptions(c, tables));
+      const card = el('div', { className: `cam-ch${c.place === 'table' ? ' is-linked' : ''}` },
+        box,
+        el('div', { className: 'cn' }, el('b', { title: c.name }, c.name), el('small', { className: c.online === false ? 'off' : '' }, c.online === false ? 'o‘chiq' : `kanal ${c.ch}`)),
+        sel);
+      box.addEventListener('click', () => camShot(n, c, box));
+      sel.addEventListener('change', async () => {
+        const v = sel.value;
+        const tableId = v.startsWith('t:') ? v.slice(2) : '';
+        const t = tables.flatMap((h) => h.tables).find((x) => x.id === tableId);
+        try {
+          const r = await OqDesktop.cameras.place(n.id, c.ch, { place: tableId ? 'table' : v, tableId, label: t ? t.label : '' });
+          Object.assign(c, { place: r.place || '', tableId: r.tableId || '', label: r.label || '' });
+          card.classList.toggle('is-linked', c.place === 'table');
+          camPill();
+        } catch (x) {
+          camErr(errText(x));
+        }
+      });
+      const old = cam.shots.get(`${n.id}:${c.ch}`);
+      if (old) box.replaceChildren(el('img', { src: old, alt: c.name }));
+      else if (c.online === false) box.replaceChildren(el('span', {}, 'kamera o‘chiq yoki ulanmagan'));
+      else queue.push(() => camShot(n, c, box));
+      return card;
+    })))));
+  // rasmlar ketma-ket — videoregistratorga bir vaqtda ko'p so'rov ketmasin
+  for (const job of queue) await job();
+}
+async function camLoad() {
+  try {
+    cam.nvrs = (await OqDesktop.cameras.state()).nvrs || [];
+  } catch (x) {
+    camErr(errText(x));
+    return;
+  }
+  await camRender();
+}
+if (OqDesktop.cameras) camLoad();

@@ -25,6 +25,17 @@ if (local) {
     onUpdate: (cb) => ipcRenderer.on('oq:update', (_e, u) => cb(u)),
     installUpdate: () => ipcRenderer.invoke('oq:update:install'),
     checkUpdates: () => ipcRenderer.invoke('oq:update:check'),
+    // kameralar (videoregistratorlar)
+    cameras: {
+      state: () => ipcRenderer.invoke('oq:cam:state'),
+      discover: () => ipcRenderer.invoke('oq:cam:discover'),
+      connect: (o) => ipcRenderer.invoke('oq:cam:connect', { ip: String(o?.ip || ''), port: Number(o?.port) || 80, user: String(o?.user || ''), pass: String(o?.pass || '') }),
+      refresh: (id) => ipcRenderer.invoke('oq:cam:refresh', String(id)),
+      snapshot: (id, ch) => ipcRenderer.invoke('oq:cam:snapshot', String(id), Number(ch)),
+      place: (id, ch, p) => ipcRenderer.invoke('oq:cam:place', String(id), Number(ch), { place: String(p?.place || ''), tableId: String(p?.tableId || ''), label: String(p?.label || '') }),
+      remove: (id) => ipcRenderer.invoke('oq:cam:remove', String(id)),
+      tables: () => ipcRenderer.invoke('oq:cam:tables'),
+    },
     // server kompyuteri
     server: {
       state: () => ipcRenderer.invoke('oq:server:state'),

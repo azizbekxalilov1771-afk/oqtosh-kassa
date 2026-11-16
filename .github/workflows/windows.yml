@@ -77,6 +77,9 @@ jobs:
       - name: Printer moduli tekshiruvi
         run: npm test
 
+      - name: Kameralar moduli tekshiruvi (soxta videoregistrator bilan)
+        run: node test/cameras-smoke.js
+
       - name: Server tekshiruvi (Windows'da ishga tushib, ma'lumotni saqlashi)
         run: node test/server-smoke.js
 
